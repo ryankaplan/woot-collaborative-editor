@@ -1,0 +1,28 @@
+html {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    height: 100%;
+
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    font-weight: 300;
+    text-align: center;
+
+    background-color: #EAF6F7;
+}
+
+.document {
+    height: 100%;
+    margin: 0 auto;
+    padding: 20px 20px;
+    text-align: left;
+    width: 640px;
+    background-color: white;
+
+    outline: none;
+}
