@@ -1,6 +1,12 @@
 /// <reference path='typings/diff_match_patch/diff_match_patch.d.ts' />
 /// <reference path='typings/jquery/jquery.d.ts' />
 /// <reference path='typings/socketio/client.d.ts' />
+var loggingEnabled = false;
+var log = function () {
+    if (this.console && loggingEnabled) {
+        console.log.apply(console, arguments);
+    }
+};
 var WCharId = (function () {
     function WCharId(site, clock) {
         this.site = site;
@@ -52,14 +58,14 @@ var WOperationType;
     WOperationType[WOperationType["DELETE"] = 1] = "DELETE";
 })(WOperationType || (WOperationType = {}));
 var WStringOperation = (function () {
-    function WStringOperation(type, char) {
-        this.type = type;
+    function WStringOperation(opType, char) {
+        this.opType = opType;
         this.char = char;
     }
     WStringOperation.decodeJsonOperation = function (operation) {
-        var type = operation.type;
+        var opType = operation.opType;
         var char = WChar.decodeJsonChar(operation.char);
-        return new WStringOperation(type, char);
+        return new WStringOperation(opType, char);
     };
     return WStringOperation;
 })();
@@ -84,14 +90,14 @@ var WString = (function () {
      * Returns the operation that made the modification.
      */
     WString.prototype.generateInsertOperation = function (char, position) {
-        console.log("[generateInsertOperation] Entered with char ", char, "and position ", position);
+        log("[generateInsertOperation] Entered with char ", char, "and position ", position);
         var nextId = this._idGenerator();
         var previous = this.ithVisible(position);
-        console.log("[generateInsertOperation] Previous", previous);
+        log("[generateInsertOperation] Previous", previous);
         var next = this.ithVisible(position + 1);
-        console.log("[generateInsertOperation] Next", next);
+        log("[generateInsertOperation] Next", next);
         var newChar = new WChar(nextId, char, previous.id, next.id);
-        console.log("[generateInsertOperation] newChar", newChar);
+        log("[generateInsertOperation] newChar", newChar);
         this.integrateInsertion(newChar);
         return new WStringOperation(0 /* INSERT */, newChar);
     };
@@ -105,13 +111,13 @@ var WString = (function () {
      * are both visible.
      */
     WString.prototype.ithVisible = function (position) {
-        console.log("[ithVisible] position ", position);
+        log("[ithVisible] position ", position);
         var foundSoFar = -1;
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
             if (char.visible) {
                 foundSoFar += 1;
-                console.log("foundSoFar ", foundSoFar, " char ", char);
+                log("foundSoFar ", foundSoFar, " char ", char);
                 if (foundSoFar == position) {
                     return this._chars[i];
                 }
@@ -124,7 +130,7 @@ var WString = (function () {
     WString.prototype.contains = function (id) {
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
-            console.log("Comparing ", char.id.toString(), id.toString());
+            log("Comparing ", char.id.toString(), id.toString());
             if (char.id.toString() == id.toString()) {
                 return true;
             }
@@ -132,28 +138,28 @@ var WString = (function () {
         return false;
     };
     WString.prototype.isExecutable = function (op) {
-        if (op.type == 0 /* INSERT */) {
+        if (op.opType == 0 /* INSERT */) {
             return this.contains(op.char.previous) && this.contains(op.char.next);
         }
-        else if (op.type == 1 /* DELETE */) {
+        else if (op.opType == 1 /* DELETE */) {
             return this.contains(op.char.id);
         }
         else {
-            throw Error("Unrecognized operation type " + op.type);
+            throw Error("Unrecognized operation type " + op.opType);
         }
     };
     // TODO(ryan): This is not at all to the paper specification and will do the wrong thing in many cases
     WString.prototype.integrateInsertion = function (newChar) {
-        console.log("[integrateInsertion] begin");
+        log("[integrateInsertion] begin");
         this._seenIds[newChar.id.toString()] = true;
-        console.log("[integrateInsertion] chars", this._chars);
+        log("[integrateInsertion] chars", this._chars);
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
             if (char.id.toString() == newChar.previous.toString()) {
                 // splice replaces the element at its first index. We want to insert
                 // at the location one after, i.e. i + 1.
                 this._chars.splice(i + 1, 0, newChar);
-                console.log("[integrateInsertion] chars", this._chars);
+                log("[integrateInsertion] chars", this._chars);
                 return;
             }
         }
@@ -208,41 +214,43 @@ var DocumentPageController = (function () {
     }
     DocumentPageController.prototype.handleRemoteOperation = function (jsonOperation) {
         var operation = WStringOperation.decodeJsonOperation(jsonOperation);
-        console.log("[handleRemoteOperation] Entered with operation", operation);
-        console.log(this._string);
-        if (operation.type == 0 /* INSERT */ && this._string.contains(operation.char.id)) {
-            console.log("[handleRemoteOperation] returning early");
+        log("[handleRemoteOperation] Entered with operation", operation);
+        log(this._string);
+        if (operation.opType == 0 /* INSERT */ && this._string.contains(operation.char.id)) {
+            log("[handleRemoteOperation] returning early");
             return;
         }
-        if (operation.type == 0 /* INSERT */) {
-            console.log("[handleRemoteOperation] integrating insert");
+        if (operation.opType == 0 /* INSERT */) {
+            log("[handleRemoteOperation] integrating insert");
             this._string.integrateInsertion(operation.char);
         }
         else {
-            console.log("[handleRemoteOperation] integrating delete");
+            log("[handleRemoteOperation] integrating delete");
             this._string.integrateDeletion(operation.char);
         }
         // Set this so that we don't think the user made this change and enter
         // a feedback loop
         this._lastKnownDocumentContent = this._string.stringForDisplay();
-        this._textDiv.text(this._string.stringForDisplay());
+        this._textDiv.val(this._string.stringForDisplay());
     };
     DocumentPageController.prototype.startSyncing = function () {
-        console.log("[client id = " + this._clientId + ", counter = ", this._counter + "]");
+        log("[client id = " + this._clientId + ", counter = ", this._counter + "]");
         this._string = new WString(function () {
             this._counter += 1;
             return new WCharId(this._clientId, this._counter);
         }.bind(this));
         // Sometimes it starts with a return? Why is that?
-        this._textDiv.text("");
-        this._lastKnownDocumentContent = this._textDiv.text();
+        this._textDiv.val("");
+        this._lastKnownDocumentContent = this._textDiv.val();
         var syncDocument = function () {
-            console.log("About to sync...");
-            var newText = $("#woot-document").text();
+            log("About to sync...");
+            var newText = this._textDiv.val();
             if (newText == this._lastKnownDocumentContent) {
-                console.log("Nothing to do!");
+                log("Nothing to do!");
                 return;
             }
+            log("NEW TEXT", newText);
+            log("NEW TEXT LENGTH, ", newText.length);
             this.handleTextChange(this._lastKnownDocumentContent, newText);
             this._lastKnownDocumentContent = newText;
         }.bind(this);
@@ -255,7 +263,7 @@ var DocumentPageController = (function () {
             // Wait until we have a client id
             return false;
         }
-        console.log("Sending socket message!!!!!");
+        log("Sending socket message!!!!!");
         this._socket.emit(message, data);
         return true;
     };
@@ -266,10 +274,10 @@ var DocumentPageController = (function () {
         // it applies to, like ["DIFF_DELETE", "monkey"] or ["DIFF_EQUAL", "ajsk"] or
         // ["DIFF_INSERT", "rabbit"]
         var results = differ.diff_main(oldText, newText);
-        console.log("About to integrate text change!");
-        console.log("Results was... ");
-        console.log(results);
-        console.log("Current value is: ", this._string.stringForDisplay());
+        log("About to integrate text change!");
+        log("Results was... ");
+        log(results);
+        log("Current value is: ", this._string.stringForDisplay());
         // Turn the results into a set of operations that our woot algorithm understands
         var cursorLocation = 0;
         for (var i = 0; i < results.length; i++) {
@@ -277,20 +285,20 @@ var DocumentPageController = (function () {
             var text = results[i][1];
             if (op == DIFF_DELETE) {
                 for (var j = 0; j < text.length; j++) {
-                    console.log("Delete char " + text[j] + " at index " + cursorLocation);
+                    log("Delete char " + text[j] + " at index " + cursorLocation);
                     var operation = this._string.generateDeleteOperation(text[j], cursorLocation);
                     this.sendMessage("text_operation", operation);
                     // TODO(ryan): broadcast operation
-                    console.log("New value is: ", this._string.stringForDisplay());
+                    log("New value is: ", this._string.stringForDisplay());
                 }
             }
             else if (op == DIFF_INSERT) {
                 for (var j = 0; j < text.length; j++) {
-                    console.log("Insert char " + text[j] + " after char at index " + cursorLocation);
+                    log("Insert char " + text[j] + " after char at index " + cursorLocation);
                     var operation = this._string.generateInsertOperation(text[j], cursorLocation);
                     this.sendMessage("text_operation", operation);
                     // TODO(ryan): broadcast operation
-                    console.log("New value is: ", this._string.stringForDisplay());
+                    log("New value is: ", this._string.stringForDisplay());
                     cursorLocation += 1;
                 }
             }

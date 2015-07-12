@@ -25,6 +25,14 @@ io.on('connection', function (socket) {
     })
 });
 
+app.get('/', function (req, res) {
+    res.writeHead(302, {
+        'Location': '/html/wootdocument.html'
+    });
+    res.end();
+});
+
+
 http.listen(3000, function () {
     console.log('listening on *:3000');
 });
