@@ -3,8 +3,24 @@
 /// <reference path='typings/socketio/client.d.ts' />
 var loggingEnabled = false;
 var log = function () {
+    var things = [];
+    for (var _i = 0; _i < arguments.length; _i++) {
+        things[_i - 0] = arguments[_i];
+    }
     if (this.console && loggingEnabled) {
         console.log.apply(console, arguments);
+    }
+};
+// Returns -1 if less than, 0 if equal, 1 if greater than
+var compareNumbers = function (first, second) {
+    if (first < second) {
+        return -1;
+    }
+    else if (first == second) {
+        return 0;
+    }
+    else {
+        return 1;
     }
 };
 var WCharId = (function () {
@@ -12,6 +28,13 @@ var WCharId = (function () {
         this.site = site;
         this.clock = clock;
     }
+    WCharId.prototype.compare = function (other) {
+        if (this.site == other.site) {
+            // Sites are the same, compare by clock
+            return compareNumbers(this.clock, other.clock);
+        }
+        return compareNumbers(this.site, other.site);
+    };
     WCharId.prototype.toString = function () {
         return this.site + "/" + this.clock;
     };
@@ -35,6 +58,13 @@ var WChar = (function () {
         var char = new WChar(id, jsonChar.character, previous, next);
         char.visible = jsonChar.visible;
         return char;
+    };
+    WChar.prototype.debugString = function () {
+        return JSON.stringify({
+            'id': this.id.toString(),
+            'visible': this.visible,
+            'character': this.character
+        });
     };
     WChar.prototype.isBegin = function () {
         return this.id.site == -1 && this.id.clock == 0;
@@ -73,13 +103,10 @@ var WString = (function () {
     function WString(idGenerator) {
         this._idGenerator = idGenerator;
         this._chars = [];
-        this._seenIds = {};
         var begin = WChar.begin();
         var end = WChar.end();
         this._chars.push(begin);
         this._chars.push(end);
-        this._seenIds[begin.toString()] = true;
-        this._seenIds[end.toString()] = true;
     }
     /**
      * generateInsertOperation and generateDeleteOperation create and integrate an
@@ -125,6 +152,16 @@ var WString = (function () {
         }
         throw Error("There is no " + position + "th visible char!");
     };
+    // Returns -1 if not present
+    WString.prototype.indexOfCharWithId = function (charId) {
+        for (var i = 0; i < this._chars.length; i++) {
+            var char = this._chars[i];
+            if (char.id.toString() == charId.toString()) {
+                return i;
+            }
+        }
+        return -1;
+    };
     // Returns `true` if a character with the passed in id is in this string
     // (visible or not)
     WString.prototype.contains = function (id) {
@@ -148,22 +185,58 @@ var WString = (function () {
             throw Error("Unrecognized operation type " + op.opType);
         }
     };
-    // TODO(ryan): This is not at all to the paper specification and will do the wrong thing in many cases
     WString.prototype.integrateInsertion = function (newChar) {
         log("[integrateInsertion] begin");
-        this._seenIds[newChar.id.toString()] = true;
-        log("[integrateInsertion] chars", this._chars);
-        for (var i = 0; i < this._chars.length; i++) {
-            var char = this._chars[i];
-            if (char.id.toString() == newChar.previous.toString()) {
-                // splice replaces the element at its first index. We want to insert
-                // at the location one after, i.e. i + 1.
-                this._chars.splice(i + 1, 0, newChar);
-                log("[integrateInsertion] chars", this._chars);
-                return;
+        this._integrateInsertionHelper(newChar, newChar.previous, newChar.next);
+    };
+    WString.prototype._integrateInsertionHelper = function (newChar, previousId, nextId) {
+        log("_integrateInsertionHelper] begin with chars", this._chars);
+        var previousIndex = this.indexOfCharWithId(previousId);
+        if (previousIndex == -1) {
+            throw Error("[_integrateInsertionHelper] Previous index not present in string!");
+        }
+        var nextIndex = this.indexOfCharWithId(nextId);
+        if (nextIndex == -1) {
+            throw Error("[_integrateInsertionHelper] Next index not present in string!");
+        }
+        if (nextIndex <= previousIndex) {
+            throw Error("[_integrateInsertionHelper] nextIndex must be greater than previousIndex");
+        }
+        if (nextIndex == previousIndex + 1) {
+            // We only have one place for newChar to go. This is easy.
+            // splice pushes the element at nextIndex to the right.
+            this._chars.splice(nextIndex, 0, newChar);
+            log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
+            return;
+        }
+        log("Previous index is ", previousIndex, " which is character ", this._chars[previousIndex].debugString());
+        log("Next index is ", nextIndex, " which is character ", this._chars[nextIndex].debugString());
+        // lChars is 'L' from page 11 of the paper and dChar is d_0, d_1, ... from
+        // the same page
+        var lChars = [];
+        lChars.push(this._chars[previousIndex]);
+        for (var i = previousIndex + 1; i < nextIndex; i++) {
+            var dChar = this._chars[i];
+            var dCharIndexOfPrevious = this.indexOfCharWithId(dChar.previous);
+            var dCharIndexOfNext = this.indexOfCharWithId(dChar.next);
+            if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
+                lChars.push(dChar);
             }
         }
-        throw Error("Didn't find previous in integrateInsertion!");
+        lChars.push(this._chars[nextIndex]);
+        // newChar belongs somewhere between previousIndex and nextIndex, but we don't
+        // know where. See page 11 of the paper for more info on what we're about to do.
+        log("Walking along the chars list!");
+        var i = 1;
+        while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
+            i += 1;
+            console.log("Just got to index ", i, " about to compare characters ", lChars[i].debugString(), " and ", newChar.debugString());
+        }
+        log("Nope, were done now");
+        log("We decided to insert at index ", i);
+        log("This is lChars", lChars);
+        log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
+        this._integrateInsertionHelper(newChar, lChars[i - 1].id, lChars[i].id);
     };
     WString.prototype.integrateDeletion = function (charToDelete) {
         for (var i = 0; i < this._chars.length; i++) {
