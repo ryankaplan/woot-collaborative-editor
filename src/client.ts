@@ -104,6 +104,14 @@ class WString {
         this._seenIds[end.toString()] = true;
     }
 
+    /**
+     * generateInsertOperation and generateDeleteOperation create and integrate an
+     * operation for a text change in this WString. For example, if you string is
+     * WString("abc") and you call .generateInsertOperation("x", 0) the string will
+     * become WString("axbc").
+     *
+     * Returns the operation that made the modification.
+     */
     generateInsertOperation(char: string, position: number): WStringOperation {
         console.log("[generateInsertOperation] Entered with char ", char, "and position ", position);
         var nextId = this._idGenerator();
@@ -123,6 +131,10 @@ class WString {
         return new WStringOperation(WOperationType.DELETE, charToDelete);
     }
 
+    /**
+     * Returns the ith visible character in this string. WChar.begin and WChar.end
+     * are both visible.
+     */
     ithVisible(position: number): WChar {
         console.log("[ithVisible] position ", position);
 
@@ -141,6 +153,8 @@ class WString {
         throw Error("There is no " + position + "th visible char!");
     }
 
+    // Returns `true` if a character with the passed in id is in this string
+    // (visible or not)
     contains(id: WCharId): boolean {
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
@@ -198,6 +212,7 @@ class WString {
         }
     }
 
+    // Call this to get a string to show to the user
     stringForDisplay() {
         var result = "";
         for (var i = 0; i < this._chars.length; i++) {

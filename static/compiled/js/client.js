@@ -75,6 +75,14 @@ var WString = (function () {
         this._seenIds[begin.toString()] = true;
         this._seenIds[end.toString()] = true;
     }
+    /**
+     * generateInsertOperation and generateDeleteOperation create and integrate an
+     * operation for a text change in this WString. For example, if you string is
+     * WString("abc") and you call .generateInsertOperation("x", 0) the string will
+     * become WString("axbc").
+     *
+     * Returns the operation that made the modification.
+     */
     WString.prototype.generateInsertOperation = function (char, position) {
         console.log("[generateInsertOperation] Entered with char ", char, "and position ", position);
         var nextId = this._idGenerator();
@@ -92,6 +100,10 @@ var WString = (function () {
         this.integrateDeletion(charToDelete);
         return new WStringOperation(1 /* DELETE */, charToDelete);
     };
+    /**
+     * Returns the ith visible character in this string. WChar.begin and WChar.end
+     * are both visible.
+     */
     WString.prototype.ithVisible = function (position) {
         console.log("[ithVisible] position ", position);
         var foundSoFar = -1;
@@ -107,6 +119,8 @@ var WString = (function () {
         }
         throw Error("There is no " + position + "th visible char!");
     };
+    // Returns `true` if a character with the passed in id is in this string
+    // (visible or not)
     WString.prototype.contains = function (id) {
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
@@ -153,6 +167,7 @@ var WString = (function () {
             }
         }
     };
+    // Call this to get a string to show to the user
     WString.prototype.stringForDisplay = function () {
         var result = "";
         for (var i = 0; i < this._chars.length; i++) {
