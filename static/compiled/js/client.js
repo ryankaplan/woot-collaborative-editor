@@ -274,7 +274,7 @@ var DocumentPageController = (function () {
     function DocumentPageController() {
         this._lastKnownDocumentContent = "";
         this._socket = io();
-        this._clientId = 0;
+        this._clientId = -1;
         this._counter = 0;
         this._socket.on('client_id', function (myClientId) {
             this._clientId = myClientId;
@@ -327,30 +327,31 @@ var DocumentPageController = (function () {
             this.handleTextChange(this._lastKnownDocumentContent, newText);
             this._lastKnownDocumentContent = newText;
         }.bind(this);
+        // TODO(ryan) we poll the document for changes. This is silly. We should set timeouts
+        // to wait for 2s of inactivity and then sync.
         window.setInterval(syncDocument, 2000);
         this._textDiv.attr("contentEditable", "true");
     };
-    // Returns whether the send was successful
+    // Sends a message to the server. Returns false if sending failed
+    // e.g. if we haven't received our clientId yet.
     DocumentPageController.prototype.sendMessage = function (message, data) {
-        if (this._clientId === 0) {
-            // Wait until we have a client id
-            return false;
+        if (this._clientId !== -1) {
+            this._socket.emit(message, data);
+            return true;
         }
-        log("Sending socket message!!!!!");
-        this._socket.emit(message, data);
-        return true;
+        return false;
     };
-    // Called when text in input changes
+    /**
+     * This should be called when we notice a change in our text view. It compares the old text
+     * against the new, generates the appropriate WStringOperations, and sends them to the server
+     * for broadcasting.
+     */
     DocumentPageController.prototype.handleTextChange = function (oldText, newText) {
         var differ = new diff_match_patch();
         // Each `any` is a two-element list of text-operation-type and the text that
         // it applies to, like ["DIFF_DELETE", "monkey"] or ["DIFF_EQUAL", "ajsk"] or
         // ["DIFF_INSERT", "rabbit"]
         var results = differ.diff_main(oldText, newText);
-        log("About to integrate text change!");
-        log("Results was... ");
-        log(results);
-        log("Current value is: ", this._string.stringForDisplay());
         // Turn the results into a set of operations that our woot algorithm understands
         var cursorLocation = 0;
         for (var i = 0; i < results.length; i++) {
@@ -361,8 +362,6 @@ var DocumentPageController = (function () {
                     log("Delete char " + text[j] + " at index " + cursorLocation);
                     var operation = this._string.generateDeleteOperation(text[j], cursorLocation);
                     this.sendMessage("text_operation", operation);
-                    // TODO(ryan): broadcast operation
-                    log("New value is: ", this._string.stringForDisplay());
                 }
             }
             else if (op == DIFF_INSERT) {
@@ -370,8 +369,6 @@ var DocumentPageController = (function () {
                     log("Insert char " + text[j] + " after char at index " + cursorLocation);
                     var operation = this._string.generateInsertOperation(text[j], cursorLocation);
                     this.sendMessage("text_operation", operation);
-                    // TODO(ryan): broadcast operation
-                    log("New value is: ", this._string.stringForDisplay());
                     cursorLocation += 1;
                 }
             }
