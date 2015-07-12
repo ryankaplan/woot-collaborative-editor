@@ -20,6 +20,12 @@ var compareNumbers = function (first: number, second: number): number {
     }
 }
 
+/**
+ * In our algorithm, every character in a document gets a unique id that it
+ * keeps forever. The id has two parts: the clientId of the site where it
+ * was generated, and a 'clock' that increments every time a client generates
+ * a new character.
+ */
 class WCharId {
     site: number;
     clock: number;
@@ -29,6 +35,7 @@ class WCharId {
         this.clock = clock;
     }
 
+    // Returns -1 for less than, 0 for equal, 1 for greater than
     compare(other: WCharId): number {
         if (this.site == other.site) {
             // Sites are the same, compare by clock
@@ -46,10 +53,20 @@ class WCharId {
     }
 }
 
+/**
+ * This represents a character in our WString class.
+ */
 class WChar {
+    // The id assigned at creation-time that this character keeps forever
     id: WCharId;
+    // false if this character has been 'deleted' from the document
     visible: boolean;
+    // The user-visible character that this WChar represents
     character: string;
+
+    // As per the algorithm outlines in the document, each character specifies
+    // which two characters it belongs between. These are the ids of the chars
+    // that must go somewhere before and somewhere after this character respectively.
     previous: WCharId;
     next: WCharId;
 
@@ -97,6 +114,10 @@ class WChar {
     }
 }
 
+/**
+ * WStringOperations are generated when a user modifies their copy of a document
+ * and received from other clients to be applied to our WString.
+ */
 enum WOperationType {
     INSERT,
     DELETE
@@ -118,10 +139,13 @@ class WStringOperation {
     }
 }
 
+/**
+ * This is where most of the collaboration logic lives.
+ */
 class WString {
+    // Function that generates WCharIds for a particular site
     _idGenerator: (() => WCharId);
-
-    // These two data structures are insert only
+    // List of all WChars that comprise our string
     _chars: Array<WChar>;
 
     constructor(idGenerator: (() => WCharId)) {
@@ -163,18 +187,16 @@ class WString {
 
     /**
      * Returns the ith visible character in this string. WChar.begin and WChar.end
-     * are both visible.
+     * are both visible. TODO(ryan): this could be more efficient if we keep an
+     * additional list of only-visible chars.
      */
     ithVisible(position: number): WChar {
         log("[ithVisible] position ", position);
-
         var foundSoFar = -1;
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
             if (char.visible) {
                 foundSoFar += 1;
-
-                log("foundSoFar ", foundSoFar, " char ", char);
                 if (foundSoFar == position) {
                     return this._chars[i];
                 }
@@ -183,7 +205,7 @@ class WString {
         throw Error("There is no " + position + "th visible char!");
     }
 
-    // Returns -1 if not present
+    // Returns -1 if not present.
     indexOfCharWithId(charId: WCharId): number {
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
@@ -195,7 +217,7 @@ class WString {
     }
 
     // Returns `true` if a character with the passed in id is in this string
-    // (visible or not)
+    // (visible or not) TODO(ryan): this could be O(1)
     contains(id: WCharId): boolean {
         for (var i = 0; i < this._chars.length; i++) {
             var char = this._chars[i];
@@ -209,6 +231,8 @@ class WString {
         return false;
     }
 
+    // TODO(ryan): implement pooling. Right now we just assume that all ops are executable
+    // immediately. This is bad D:
     isExecutable(op: WStringOperation) {
         if (op.opType == WOperationType.INSERT) {
             return this.contains(op.char.previous) && this.contains(op.char.next);
@@ -228,6 +252,8 @@ class WString {
         this._integrateInsertionHelper(newChar, newChar.previous, newChar.next);
     }
 
+    // This function implements the logic in the code block at the top of page 11 in
+    // the paper.
     _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId) {
         log("_integrateInsertionHelper] begin with chars", this._chars);
 
