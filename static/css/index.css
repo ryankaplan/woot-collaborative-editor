@@ -23,6 +23,6 @@ body {
     text-align: left;
     width: 640px;
     background-color: white;
-
+    border: 1px solid rgb(224, 224, 224);
     outline: none;
 }
