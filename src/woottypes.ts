@@ -215,22 +215,8 @@ module WootTypes {
 
         // Returns -1 if not present.
         indexOfCharWithId(charId: WCharId): number {
-            // TODO(ryan): This line will make us crash the browser on the following
-            // repro steps:
-            // 1. Paste in 1000 chars
-            // 2. Delete the 1000 chars
-            // 3. Paste them in again
             var char = this._charById[charId.toString()];
-
-            //var res = this._chars.indexOf(this._charById[charId.toString()]);
-
-            for (var i = 0; i < this._chars.length; i++) {
-                var char = this._chars[i];
-                if (char.id.toString() === charId.toString()) {
-                    return i;
-                }
-            }
-            return -1;
+            return this._chars.indexOf(char);
         }
 
         // Returns `true` if a character with the passed in id is in this string
@@ -260,66 +246,71 @@ module WootTypes {
             this._integrateInsertionHelper(newChar, newChar.previous, newChar.next);
         }
 
-        // This function implements the logic in the code block at the top of page 11 in
-        // the paper.
+        // This function is an iterative version of the logic in the code block at the top
+        // of page 11 in the paper. We were hitting maximum call stack issues with the recursive
+        // version.
         _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId) {
-            log("_integrateInsertionHelper] begin with chars", this._chars);
+            while (true) {
+                log("_integrateInsertionHelper] begin with chars", this._chars);
 
-            var previousIndex = this.indexOfCharWithId(previousId);
-            if (previousIndex === -1) {
-                throw Error("[_integrateInsertionHelper] Previous index not present in string!");
-            }
-            var nextIndex = this.indexOfCharWithId(nextId);
-            if (nextIndex === -1) {
-                throw Error("[_integrateInsertionHelper] Next index not present in string!");
-            }
-            if (nextIndex <= previousIndex) {
-                throw Error("[_integrateInsertionHelper] nextIndex must be greater than previousIndex");
-            }
-
-            if (nextIndex === previousIndex + 1) {
-                // We only have one place for newChar to go. This is easy.
-                // splice pushes the element at nextIndex to the right.
-                this._chars.splice(nextIndex, 0, newChar);
-                this._charById[newChar.id.toString()] = newChar;
-                log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
-                return;
-            }
-
-            log("Previous index is ", previousIndex, " which is character ", this._chars[previousIndex].debugString());
-            log("Next index is ", nextIndex, " which is character ", this._chars[nextIndex].debugString());
-
-            // lChars is 'L' from page 11 of the paper and dChar is d_0, d_1, ... from
-            // the same page
-            var lChars = [];
-            lChars.push(this._chars[previousIndex]);
-            for (var i = previousIndex + 1; i < nextIndex; i++) {
-                var dChar = this._chars[i];
-                var dCharIndexOfPrevious = this.indexOfCharWithId(dChar.previous);
-                var dCharIndexOfNext = this.indexOfCharWithId(dChar.next);
-
-                if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
-                    lChars.push(dChar);
+                var previousIndex = this.indexOfCharWithId(previousId);
+                if (previousIndex === -1) {
+                    throw Error("[_integrateInsertionHelper] Previous index not present in string!");
                 }
+                var nextIndex = this.indexOfCharWithId(nextId);
+                if (nextIndex === -1) {
+                    throw Error("[_integrateInsertionHelper] Next index not present in string!");
+                }
+                if (nextIndex <= previousIndex) {
+                    throw Error("[_integrateInsertionHelper] nextIndex must be greater than previousIndex");
+                }
+
+                if (nextIndex === previousIndex + 1) {
+                    // We only have one place for newChar to go. This is easy.
+                    // splice pushes the element at nextIndex to the right.
+                    this._chars.splice(nextIndex, 0, newChar);
+                    this._charById[newChar.id.toString()] = newChar;
+                    log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
+                    return;
+                }
+
+                // these logs are expensive, shortcut early if logging is disabled
+                loggingEnabled && log("Previous index is ", previousIndex, " which is character ", this._chars[previousIndex].debugString());
+                loggingEnabled && log("Next index is ", nextIndex, " which is character ", this._chars[nextIndex].debugString());
+
+                // lChars is 'L' from page 11 of the paper and dChar is d_0, d_1, ... from
+                // the same page
+                var lChars = [];
+                lChars.push(this._chars[previousIndex]);
+                for (var i = previousIndex + 1; i < nextIndex; i++) {
+                    var dChar = this._chars[i];
+                    var dCharIndexOfPrevious = this.indexOfCharWithId(dChar.previous);
+                    var dCharIndexOfNext = this.indexOfCharWithId(dChar.next);
+
+                    if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
+                        lChars.push(dChar);
+                    }
+                }
+                lChars.push(this._chars[nextIndex]);
+
+                // newChar belongs somewhere between previousIndex and nextIndex, but we don't
+                // know where. See page 11 of the paper for more info on what we're about to do.
+
+                log("Walking along the chars list!");
+                var i = 1;
+                while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
+                    i += 1;
+                    log("Just got to index ", i, " about to compare characters ",
+                        lChars[i].debugString(), " and " , newChar.debugString());
+                }
+                log("Nope, were done now");
+
+                log("We decided to insert at index ", i);
+                log("This is lChars", lChars);
+                log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
+                previousId = lChars[i - 1].id;
+                nextId = lChars[i].id;
             }
-            lChars.push(this._chars[nextIndex]);
-
-            // newChar belongs somewhere between previousIndex and nextIndex, but we don't
-            // know where. See page 11 of the paper for more info on what we're about to do.
-
-            log("Walking along the chars list!");
-            var i = 1;
-            while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
-                i += 1;
-                log("Just got to index ", i, " about to compare characters ",
-                    lChars[i].debugString(), " and " , newChar.debugString());
-            }
-            log("Nope, were done now");
-
-            log("We decided to insert at index ", i);
-            log("This is lChars", lChars);
-            log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
-            this._integrateInsertionHelper(newChar, lChars[i - 1].id, lChars[i].id);
         }
 
         integrateDeletion(charToDelete: WChar) {
