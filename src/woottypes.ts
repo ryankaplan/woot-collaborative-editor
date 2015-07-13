@@ -259,8 +259,10 @@ module WootTypes {
              * 3. Paste them back in
              *
              * This operation hangs the UI for 4/5 seconds. When profiled, most of the work
-             * is done in this method calling into indexOfCharWithId. So we optimize these
-             * calls with the map below.
+             * is done in this method calling into indexOfCharWithId which is O(n) for n
+             * the number of chars in the string. So we optimize these calls by iterating
+             * once over the string at the beginning of the method and building up a map
+             * of WCharId -> location in _chars.
              */
             var indexById = {};
             for (var i = 0; i < this._chars.length; i++) {
