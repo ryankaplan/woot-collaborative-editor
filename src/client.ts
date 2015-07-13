@@ -46,12 +46,12 @@ module WootDemoPage {
 
         _lastSyncTimeoutId: number;
 
-        constructor() {
+        constructor(elementSelector: string) {
             log("DocumentController created");
             this._socket = io();
             this._siteId = -1;
             this._operationCounter = 0;
-            this._textArea = $("#woot-document");
+            this._textArea = $(elementSelector);
             this._lastKnownDocumentContent = "";
             this._string = null;
 

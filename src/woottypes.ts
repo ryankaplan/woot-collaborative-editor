@@ -11,7 +11,7 @@ module WootTypes {
     var compareNumbers = function (first: number, second: number): number {
         if (first < second) {
             return -1;
-        } else if (first == second) {
+        } else if (first === second) {
             return 0;
         } else {
             return 1;
@@ -37,7 +37,7 @@ module WootTypes {
 
         // Returns -1 for less than, 0 for equal, 1 for greater than
         compare(other: WCharId): number {
-            if (this.site == other.site) {
+            if (this.site === other.site) {
                 // Sites are the same, compare by clock
                 return compareNumbers(this.clock, other.clock);
             }
@@ -100,11 +100,11 @@ module WootTypes {
         }
 
         isBegin() {
-            return this.id.site == -1 && this.id.clock == 0;
+            return this.id.site === -1 && this.id.clock === 0;
         }
 
         isEnd() {
-            return this.id.site == -1 && this.id.clock == 1;
+            return this.id.site === -1 && this.id.clock === 1;
         }
 
         static begin(): WChar {
@@ -205,7 +205,7 @@ module WootTypes {
                 var char = this._chars[i];
                 if (char.visible) {
                     foundSoFar += 1;
-                    if (foundSoFar == position) {
+                    if (foundSoFar === position) {
                         return this._chars[i];
                     }
                 }
@@ -220,11 +220,13 @@ module WootTypes {
             // 1. Paste in 1000 chars
             // 2. Delete the 1000 chars
             // 3. Paste them in again
+            var char = this._charById[charId.toString()];
+
             //var res = this._chars.indexOf(this._charById[charId.toString()]);
 
             for (var i = 0; i < this._chars.length; i++) {
                 var char = this._chars[i];
-                if (char.id.toString() == charId.toString()) {
+                if (char.id.toString() === charId.toString()) {
                     return i;
                 }
             }
@@ -234,17 +236,17 @@ module WootTypes {
         // Returns `true` if a character with the passed in id is in this string
         // (visible or not) TODO(ryan): this could be O(1)
         contains(id: WCharId): boolean {
-            return !!this._charById[id.toString()];
+            return id.toString() in this._charById;
         }
 
         // TODO(ryan): implement pooling. Right now we just assume that all ops are executable
         // immediately. This is bad D:
         isExecutable(op: WStringOperation) {
-            if (op.opType == WOperationType.INSERT) {
+            if (op.opType === WOperationType.INSERT) {
                 return this.contains(op.char.previous) && this.contains(op.char.next);
             }
 
-            else if (op.opType == WOperationType.DELETE) {
+            else if (op.opType === WOperationType.DELETE) {
                 return this.contains(op.char.id);
             }
 
@@ -264,18 +266,18 @@ module WootTypes {
             log("_integrateInsertionHelper] begin with chars", this._chars);
 
             var previousIndex = this.indexOfCharWithId(previousId);
-            if (previousIndex == -1) {
+            if (previousIndex === -1) {
                 throw Error("[_integrateInsertionHelper] Previous index not present in string!");
             }
             var nextIndex = this.indexOfCharWithId(nextId);
-            if (nextIndex == -1) {
+            if (nextIndex === -1) {
                 throw Error("[_integrateInsertionHelper] Next index not present in string!");
             }
             if (nextIndex <= previousIndex) {
                 throw Error("[_integrateInsertionHelper] nextIndex must be greater than previousIndex");
             }
 
-            if (nextIndex == previousIndex + 1) {
+            if (nextIndex === previousIndex + 1) {
                 // We only have one place for newChar to go. This is easy.
                 // splice pushes the element at nextIndex to the right.
                 this._chars.splice(nextIndex, 0, newChar);
@@ -321,7 +323,8 @@ module WootTypes {
         }
 
         integrateDeletion(charToDelete: WChar) {
-            this._charById[charToDelete.id.toString()].visible = false;
+            var char = this._charById[charToDelete.id.toString()];
+            char.visible = false;
         }
 
         // Call this to get a string to show to the user

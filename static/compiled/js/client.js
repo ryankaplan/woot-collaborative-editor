@@ -36,12 +36,12 @@ var WootDemoPage;
      *    our WString instance and apply them to the text in #collab-doc.
      */
     var DocumentController = (function () {
-        function DocumentController() {
+        function DocumentController(elementSelector) {
             log("DocumentController created");
             this._socket = io();
             this._siteId = -1;
             this._operationCounter = 0;
-            this._textArea = $("#woot-document");
+            this._textArea = $(elementSelector);
             this._lastKnownDocumentContent = "";
             this._string = null;
             this._textArea.hide(); // Re-shown in handleReceiveSiteId
