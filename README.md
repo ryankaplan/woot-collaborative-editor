@@ -8,7 +8,7 @@ with. I don't recommend using any of this as production/example code :)
 
 Here's a gif of it in action:
 
-![alt tag](https://raw.github.com/ryankaplan/collaborative-editing/blob/master/static/images/demo.gif)
+![Gif of two documents](https://github.com/ryankaplan/collaborative-editing/blob/master/static/images/demo.gif?raw=true)
 
 # Development setup
 
