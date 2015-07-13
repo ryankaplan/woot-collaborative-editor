@@ -109,6 +109,7 @@ module WootDemoPage {
          * for broadcasting.
          */
         processLocalTextDiff(oldText: string, newText: string) {
+            var startTimeMs = performance.now();
             console.log("Processing text diff of length", Math.abs(oldText.length - newText.length));
             var differ = new diff_match_patch();
 
@@ -148,6 +149,7 @@ module WootDemoPage {
                 }
             }
 
+            console.log("[Timing] Non-socket work of processLocalTextDiff took " + (performance.now() - startTimeMs) + " milliseconds.");
             this.sendMessage("text_operations", operationBuffer);
         }
 

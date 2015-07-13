@@ -250,17 +250,34 @@ module WootTypes {
         // of page 11 in the paper. We were hitting maximum call stack issues with the recursive
         // version.
         _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId) {
-            while (true) {
-                log("_integrateInsertionHelper] begin with chars", this._chars);
+            log("_integrateInsertionHelper] begin with chars", this._chars);
+            /**
+             * Consider the following scenario:
+             *
+             * 1. Type 2000 chars
+             * 2. Delete the chars
+             * 3. Paste them back in
+             *
+             * This operation hangs the UI for 4/5 seconds. When profiled, most of the work
+             * is done in this method calling into indexOfCharWithId. So we optimize these
+             * calls with the map below.
+             */
+            var indexById = {};
+            for (var i = 0; i < this._chars.length; i++) {
+                indexById[this._chars[i].id.toString()] = i;
+            }
 
-                var previousIndex = this.indexOfCharWithId(previousId);
-                if (previousIndex === -1) {
+            while (true) {
+                if (!(previousId.toString() in indexById)) {
                     throw Error("[_integrateInsertionHelper] Previous index not present in string!");
                 }
-                var nextIndex = this.indexOfCharWithId(nextId);
-                if (nextIndex === -1) {
+                var previousIndex: number = indexById[previousId.toString()];
+
+                if (!(nextId.toString() in indexById)) {
                     throw Error("[_integrateInsertionHelper] Next index not present in string!");
                 }
+                var nextIndex: number = indexById[nextId.toString()];
+
                 if (nextIndex <= previousIndex) {
                     throw Error("[_integrateInsertionHelper] nextIndex must be greater than previousIndex");
                 }
@@ -284,8 +301,15 @@ module WootTypes {
                 lChars.push(this._chars[previousIndex]);
                 for (var i = previousIndex + 1; i < nextIndex; i++) {
                     var dChar = this._chars[i];
-                    var dCharIndexOfPrevious = this.indexOfCharWithId(dChar.previous);
-                    var dCharIndexOfNext = this.indexOfCharWithId(dChar.next);
+                    if (!(dChar.previous.toString() in indexById)) {
+                        throw Error("dChar.previous missing from indexById");
+                    }
+                    var dCharIndexOfPrevious = indexById[dChar.previous.toString()];
+
+                    if (!(dChar.next.toString() in indexById)) {
+                        throw Error("dChar.next missing from indexById");
+                    }
+                    var dCharIndexOfNext = indexById[dChar.next.toString()];
 
                     if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
                         lChars.push(dChar);

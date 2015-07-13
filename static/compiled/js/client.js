@@ -92,6 +92,7 @@ var WootDemoPage;
          * for broadcasting.
          */
         DocumentController.prototype.processLocalTextDiff = function (oldText, newText) {
+            var startTimeMs = performance.now();
             console.log("Processing text diff of length", Math.abs(oldText.length - newText.length));
             var differ = new diff_match_patch();
             // Each `any` is a two-element list of text-operation-type and the text that
@@ -123,6 +124,7 @@ var WootDemoPage;
                     cursorLocation += text.length;
                 }
             }
+            console.log("[Timing] Non-socket work of processLocalTextDiff took " + (performance.now() - startTimeMs) + " milliseconds.");
             this.sendMessage("text_operations", operationBuffer);
         };
         DocumentController.prototype.handleRemoteOperations = function (jsonOperations) {
