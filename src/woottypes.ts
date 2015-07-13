@@ -145,15 +145,19 @@ module WootTypes {
         _idGenerator: (() => WCharId);
         // List of all WChars that comprise our string
         _chars: Array<WChar>;
+        _charById: { [charId: string]: WChar };
 
         constructor(idGenerator: (() => WCharId)) {
             this._idGenerator = idGenerator;
             this._chars = [];
+            this._charById = {};
 
             var begin = WChar.begin();
             var end = WChar.end();
             this._chars.push(begin);
             this._chars.push(end);
+            this._charById[begin.id.toString()] = begin;
+            this._charById[end.id.toString()] = end;
         }
 
         /**
@@ -217,16 +221,7 @@ module WootTypes {
         // Returns `true` if a character with the passed in id is in this string
         // (visible or not) TODO(ryan): this could be O(1)
         contains(id: WCharId): boolean {
-            for (var i = 0; i < this._chars.length; i++) {
-                var char = this._chars[i];
-
-                log("Comparing ", char.id.toString(), id.toString());
-                if (char.id.toString() == id.toString()) {
-                    return true;
-                }
-            }
-
-            return false;
+            return !!this._charById[id.toString()];
         }
 
         // TODO(ryan): implement pooling. Right now we just assume that all ops are executable
@@ -271,6 +266,7 @@ module WootTypes {
                 // We only have one place for newChar to go. This is easy.
                 // splice pushes the element at nextIndex to the right.
                 this._chars.splice(nextIndex, 0, newChar);
+                this._charById[newChar.id.toString()] = newChar;
                 log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
                 return;
             }
@@ -300,7 +296,7 @@ module WootTypes {
             var i = 1;
             while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
                 i += 1;
-                console.log("Just got to index ", i, " about to compare characters ",
+                log("Just got to index ", i, " about to compare characters ",
                     lChars[i].debugString(), " and " , newChar.debugString());
             }
             log("Nope, were done now");
@@ -312,12 +308,7 @@ module WootTypes {
         }
 
         integrateDeletion(charToDelete: WChar) {
-            for (var i = 0; i < this._chars.length; i++) {
-                var char = this._chars[i];
-                if (char.id.toString() == charToDelete.id.toString()) {
-                    char.visible = false;
-                }
-            }
+            this._charById[charToDelete.id.toString()].visible = false;
         }
 
         // Call this to get a string to show to the user
