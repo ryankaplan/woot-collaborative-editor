@@ -25,13 +25,11 @@ module WootDemoPage {
      *
      * This is how it works:
      *
-     * 1. First it tries to get a clientId from the server. Once it has a clientId
-     *    it sets contentEditable on the div to true, so that the user can edit its
-     *    text.
-     * 2. Continuously watch the div for changes. When a change is detected, diff
-     *    the textarea content against the last known content. With the help of
-     *    WootTypes.WString, turn that diff into WStringOperations and broadcast
-     *    those operations to the server.
+     * 1. First it tries to get a siteId from the server. Once it gets one, it
+     *    shows the textarea and starts polling it for changes.
+     * 2. When a change is detected, diff the textarea content against the last
+     *    known content. With the help of WootTypes.WString, turn that diff into
+     *    WStringOperations and broadcast those operations to the server.
      * 3. When we receive operations from the server, apply those operations to
      *    our WString instance and apply them to the text in #collab-doc.
      */
@@ -45,6 +43,8 @@ module WootDemoPage {
         _textArea: any;
         _lastKnownDocumentContent: string;
         _string: WString;
+
+        _lastSyncTimeoutId: number;
 
         constructor() {
             log("DocumentController created");
@@ -75,54 +75,32 @@ module WootDemoPage {
             this._textArea.val("");
             this._lastKnownDocumentContent = this._textArea.val();
             this._string = new WString(this.nextCharId.bind(this));
+            this._textArea.bind('input propertychange', this.handleTextAreaChangeEvent.bind(this));
+        }
 
-            var syncDocument = function() {
+        /**
+         * The logic for syncing changes is to wait 500ms from the last change and then
+         * to sync. This is weird in the case that someone is typing out a whole paragraph
+         * and it seems like it's not syncing at all.
+         *
+         * On the other hand, syncing on every text event can feel pretty laggy. I bet the
+         * right thing to do is a middle ground where we do what we're doing now, but we
+         * flush when we see the text diff get big enough...
+         */
+        handleTextAreaChangeEvent() {
+            // Clear the last handler for a text change event in case it hasn't happened
+            window.clearTimeout(this._lastSyncTimeoutId);
+
+            this._lastSyncTimeoutId = setTimeout(function () {
+                console.log("Passed inactivity threshold. Syncing document.");
                 var newText = this._textArea.val();
                 if (newText == this._lastKnownDocumentContent) {
-                    log("Returning early from DocumentController.syncDocument. Nothing to do.");
+                    log("Returning early; nothing to sync!");
                     return;
                 }
-                this.handleTextChange(this._lastKnownDocumentContent, newText);
+                this.processLocalTextDiff(this._lastKnownDocumentContent, newText);
                 this._lastKnownDocumentContent = newText;
-            }.bind(this);
-
-            // TODO(ryan) we poll the document for changes. This is silly. We should set timeouts
-            // to wait for 2s of inactivity and then sync.
-            window.setInterval(syncDocument, 2000);
-        }
-
-        handleRemoteOperation(jsonOperation) {
-            var operation = WStringOperation.decodeJsonOperation(jsonOperation);
-
-            log("[handleRemoteOperation] Entered with operation", operation);
-            log(this._string);
-            if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
-                log("[handleRemoteOperation] returning early");
-                return;
-            }
-
-            if (operation.opType == WOperationType.INSERT) {
-                log("[handleRemoteOperation] integrating insert");
-                this._string.integrateInsertion(operation.char);
-            } else {
-                log("[handleRemoteOperation] integrating delete");
-                this._string.integrateDeletion(operation.char);
-            }
-
-            // Set this so that we don't think the user made this change and enter
-            // a feedback loop
-            this._lastKnownDocumentContent = this._string.stringForDisplay();
-            this._textArea.val(this._string.stringForDisplay());
-        }
-
-        // Sends a message to the server. Returns false if sending failed
-        // e.g. if we haven't received our siteId yet.
-        sendMessage(message: string, data: any): boolean {
-            if (this._siteId !== -1) {
-                this._socket.emit(message, data);
-                return true;
-            }
-            return false;
+            }.bind(this), 500);
         }
 
         /**
@@ -130,7 +108,8 @@ module WootDemoPage {
          * against the new, generates the appropriate WStringOperations, and sends them to the server
          * for broadcasting.
          */
-        handleTextChange(oldText: string, newText: string) {
+        processLocalTextDiff(oldText: string, newText: string) {
+            console.log("Processing text diff of length", Math.abs(oldText.length - newText.length));
             var differ = new diff_match_patch();
 
             // Each `any` is a two-element list of text-operation-type and the text that
@@ -168,6 +147,41 @@ module WootDemoPage {
                 }
             }
         }
+
+        handleRemoteOperation(jsonOperation) {
+            var operation = WStringOperation.decodeJsonOperation(jsonOperation);
+
+            log("[handleRemoteOperation] Entered with operation", operation);
+            log(this._string);
+            if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
+                log("[handleRemoteOperation] returning early");
+                return;
+            }
+
+            if (operation.opType == WOperationType.INSERT) {
+                log("[handleRemoteOperation] integrating insert");
+                this._string.integrateInsertion(operation.char);
+            } else {
+                log("[handleRemoteOperation] integrating delete");
+                this._string.integrateDeletion(operation.char);
+            }
+
+            // Set this so that we don't think the user made this change and enter
+            // a feedback loop
+            this._lastKnownDocumentContent = this._string.stringForDisplay();
+            this._textArea.val(this._string.stringForDisplay());
+        }
+
+        // Sends a message to the server. Returns false if sending failed
+        // e.g. if we haven't received our siteId yet.
+        sendMessage(message: string, data: any): boolean {
+            if (this._siteId !== -1) {
+                this._socket.emit(message, data);
+                return true;
+            }
+            return false;
+        }
+
     }
 }
 
