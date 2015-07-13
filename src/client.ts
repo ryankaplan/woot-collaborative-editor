@@ -4,7 +4,7 @@
 /// <reference path='woottypes.ts' />
 
 module WootDemoPage {
-    var loggingEnabled = true;
+    var loggingEnabled = false;
     var log = function (...things: Array<any>) {
         if (this.console && loggingEnabled) {
             console.log.apply(console, arguments);
@@ -57,7 +57,7 @@ module WootDemoPage {
 
             this._textArea.hide(); // Re-shown in handleReceiveSiteId
             this._socket.on('site_id', this.handleReceiveSiteId.bind(this));
-            this._socket.on('text_operation', this.handleRemoteOperation.bind(this));
+            this._socket.on('text_operations', this.handleRemoteOperations.bind(this));
         }
 
         nextCharId(): WCharId {
@@ -119,6 +119,7 @@ module WootDemoPage {
 
             // Turn the results into a set of operations that our woot algorithm understands
             var cursorLocation = 0;
+            var operationBuffer = [];
             for (var i = 0; i < results.length; i++) {
                 var op = results[i][0];
                 var text = results[i][1];
@@ -127,7 +128,7 @@ module WootDemoPage {
                     for (var j = 0; j < text.length; j++) {
                         log("Delete char " + text[j] + " at index " + cursorLocation);
                         var operation = this._string.generateDeleteOperation(text[j], cursorLocation);
-                        this.sendMessage("text_operation", operation);
+                        operationBuffer.push(operation);
                         // cursorLocation doesn't change. We moved forward one character in the string
                         // but deleted that character, so our 'index' into the string hasn't changed.
                     }
@@ -137,7 +138,7 @@ module WootDemoPage {
                     for (var j = 0; j < text.length; j++) {
                         log("Insert char " + text[j] + " after char at index " + cursorLocation);
                         var operation = this._string.generateInsertOperation(text[j], cursorLocation);
-                        this.sendMessage("text_operation", operation);
+                        operationBuffer.push(operation);
                         cursorLocation += 1;
                     }
                 }
@@ -146,30 +147,35 @@ module WootDemoPage {
                     cursorLocation += text.length;
                 }
             }
+
+            this.sendMessage("text_operations", operationBuffer);
         }
 
-        handleRemoteOperation(jsonOperation) {
-            var operation = WStringOperation.decodeJsonOperation(jsonOperation);
+        handleRemoteOperations(jsonOperations) {
+            var operations = [];
+            for (var i = 0; i < jsonOperations.length; i++) {
+                var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
 
-            log("[handleRemoteOperation] Entered with operation", operation);
-            log(this._string);
-            if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
-                log("[handleRemoteOperation] returning early");
-                return;
+                log("[handleRemoteOperation] Entered with operation", operation);
+                log(this._string);
+                if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
+                    log("[handleRemoteOperation] returning early");
+                    return;
+                }
+
+                if (operation.opType == WOperationType.INSERT) {
+                    log("[handleRemoteOperation] integrating insert");
+                    this._string.integrateInsertion(operation.char);
+                } else {
+                    log("[handleRemoteOperation] integrating delete");
+                    this._string.integrateDeletion(operation.char);
+                }
+
+                // Set this so that we don't think the user made this change and enter
+                // a feedback loop
+                this._lastKnownDocumentContent = this._string.stringForDisplay();
+                this._textArea.val(this._string.stringForDisplay());
             }
-
-            if (operation.opType == WOperationType.INSERT) {
-                log("[handleRemoteOperation] integrating insert");
-                this._string.integrateInsertion(operation.char);
-            } else {
-                log("[handleRemoteOperation] integrating delete");
-                this._string.integrateDeletion(operation.char);
-            }
-
-            // Set this so that we don't think the user made this change and enter
-            // a feedback loop
-            this._lastKnownDocumentContent = this._string.stringForDisplay();
-            this._textArea.val(this._string.stringForDisplay());
         }
 
         // Sends a message to the server. Returns false if sending failed

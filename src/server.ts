@@ -20,8 +20,9 @@ io.on('connection', function (socket) {
         io.emit('chat_message', msgData);
     });
 
-    socket.on("text_operation", function (msgData) {
-        io.emit("text_operation", msgData);
+    // msgData is a list of WStringOperation instances
+    socket.on("text_operations", function (msgData) {
+        io.emit("text_operations", msgData);
     })
 });
 
