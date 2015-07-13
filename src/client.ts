@@ -3,19 +3,8 @@
 /// <reference path='typings/socketio/client.d.ts' />
 /// <reference path='woottypes.ts' />
 
-/*
- This is how it works. We have a div with id #woot-document.
- It has contentEditable set to true. So we listen for change
- events on this div. Every time we get a change event we...
-
- 1. Diff its content against its last known content
- 2. From that diff, generate add and delete ops
- 3. Put those add and delete ops into our Model
- 4. Verify that the new output of the model is what's in the page
- */
-
 module WootDemoPage {
-    var loggingEnabled = false;
+    var loggingEnabled = true;
     var log = function (...things: Array<any>) {
         if (this.console && loggingEnabled) {
             console.log.apply(console, arguments);
@@ -27,28 +16,79 @@ module WootDemoPage {
     import WStringOperation = WootTypes.WStringOperation;
     import WOperationType = WootTypes.WOperationType;
 
-    export class Controller {
+    /**
+     * A Controller instance is tied to a textarea on the page. To make your
+     * <textarea id="collab-doc" /> collaborative, just instantiate a controller
+     * for it, like so:
+     *
+     * var controller = new Controller("#collab-doc");
+     *
+     * This is how it works:
+     *
+     * 1. First it tries to get a clientId from the server. Once it has a clientId
+     *    it sets contentEditable on the div to true, so that the user can edit its
+     *    text.
+     * 2. Continuously watch the div for changes. When a change is detected, diff
+     *    the textarea content against the last known content. With the help of
+     *    WootTypes.WString, turn that diff into WStringOperations and broadcast
+     *    those operations to the server.
+     * 3. When we receive operations from the server, apply those operations to
+     *    our WString instance and apply them to the text in #collab-doc.
+     */
+    export class DocumentController {
         _socket: io;
-        _clientId: number;
-        _counter: number;
-        _lastKnownDocumentContent = "";
+        // _siteId is -1 before we hear back from the server
+        _siteId: number;
+        // Counts the operations made by this site
+        _operationCounter: number;
+        // jQuery wrapped div of the textarea that we're watching
+        _textArea: any;
+        _lastKnownDocumentContent: string;
         _string: WString;
-        _textDiv: any;
 
         constructor() {
+            log("DocumentController created");
             this._socket = io();
-            this._clientId = -1;
-            this._counter = 0;
-            this._socket.on('client_id', function (myClientId) {
-                this._clientId = myClientId;
-                this.startSyncing();
-            }.bind(this));
+            this._siteId = -1;
+            this._operationCounter = 0;
+            this._textArea = $("#woot-document");
+            this._lastKnownDocumentContent = "";
+            this._string = null;
 
-            this._socket.on('text_operation', function (operation) {
-                this.handleRemoteOperation(operation);
-            }.bind(this));
+            this._textArea.hide(); // Re-shown in handleReceiveSiteId
+            this._socket.on('site_id', this.handleReceiveSiteId.bind(this));
+            this._socket.on('text_operation', this.handleRemoteOperation.bind(this));
+        }
 
-            this._textDiv = $("#woot-document");
+        nextCharId(): WCharId {
+            this._operationCounter += 1;
+            return new WCharId(this._siteId, this._operationCounter);
+        }
+
+        handleReceiveSiteId(siteId) {
+            log("DocumentController received siteId: ", siteId);
+            this._siteId = siteId;
+            this._textArea.show();
+            this._textArea.attr("contentEditable", "true");
+
+            // TODO(ryan): This is a hack. Sometimes a textarea's val starts out as a newline. Fix this.
+            this._textArea.val("");
+            this._lastKnownDocumentContent = this._textArea.val();
+            this._string = new WString(this.nextCharId.bind(this));
+
+            var syncDocument = function() {
+                var newText = this._textArea.val();
+                if (newText == this._lastKnownDocumentContent) {
+                    log("Returning early from DocumentController.syncDocument. Nothing to do.");
+                    return;
+                }
+                this.handleTextChange(this._lastKnownDocumentContent, newText);
+                this._lastKnownDocumentContent = newText;
+            }.bind(this);
+
+            // TODO(ryan) we poll the document for changes. This is silly. We should set timeouts
+            // to wait for 2s of inactivity and then sync.
+            window.setInterval(syncDocument, 2000);
         }
 
         handleRemoteOperation(jsonOperation) {
@@ -72,44 +112,13 @@ module WootDemoPage {
             // Set this so that we don't think the user made this change and enter
             // a feedback loop
             this._lastKnownDocumentContent = this._string.stringForDisplay();
-            this._textDiv.val(this._string.stringForDisplay());
-        }
-
-        startSyncing() {
-            log("[client id = " + this._clientId + ", counter = ", this._counter + "]");
-
-            this._string = new WString(function () {
-                this._counter += 1;
-                return new WCharId(this._clientId, this._counter);
-            }.bind(this));
-
-            // Sometimes it starts with a return? Why is that?
-            this._textDiv.val("");
-
-            this._lastKnownDocumentContent = this._textDiv.val();
-            var syncDocument = function() {
-                log("About to sync...");
-                var newText = this._textDiv.val();
-                if (newText == this._lastKnownDocumentContent) {
-                    log("Nothing to do!");
-                    return;
-                }
-                log("NEW TEXT", newText);
-                log("NEW TEXT LENGTH, ", newText.length);
-                this.handleTextChange(this._lastKnownDocumentContent, newText);
-                this._lastKnownDocumentContent = newText;
-            }.bind(this);
-
-            // TODO(ryan) we poll the document for changes. This is silly. We should set timeouts
-            // to wait for 2s of inactivity and then sync.
-            window.setInterval(syncDocument, 2000);
-            this._textDiv.attr("contentEditable", "true");
+            this._textArea.val(this._string.stringForDisplay());
         }
 
         // Sends a message to the server. Returns false if sending failed
-        // e.g. if we haven't received our clientId yet.
+        // e.g. if we haven't received our siteId yet.
         sendMessage(message: string, data: any): boolean {
-            if (this._clientId !== -1) {
+            if (this._siteId !== -1) {
                 this._socket.emit(message, data);
                 return true;
             }
@@ -164,5 +173,5 @@ module WootDemoPage {
 
 var pageController = null;
 $(document).ready(function () {
-    pageController = new WootDemoPage.Controller();
+    pageController = new WootDemoPage.DocumentController("#woot-document");
 });

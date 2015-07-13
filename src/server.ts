@@ -8,13 +8,13 @@ var io = require('socket.io')(http);
 // Serve data out of /static
 app.use(express.static(__dirname + '/../../'));
 
-var nextClientId = 1;
+var nextSiteId = 1;
 
 io.on('connection', function (socket) {
     // Give the client a client id
-    console.log("Sending client id " + nextClientId);
-    socket.emit('client_id', nextClientId);
-    nextClientId += 1;
+    console.log("Sending site_id " + nextSiteId);
+    socket.emit('site_id', nextSiteId);
+    nextSiteId += 1;
 
     socket.on('chat_message', function (msgData) {
         io.emit('chat_message', msgData);
