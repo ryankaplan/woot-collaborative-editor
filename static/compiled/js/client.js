@@ -84,7 +84,7 @@ var WootDemoPage;
                 }
                 this.processLocalTextDiff(this._lastKnownDocumentContent, newText);
                 this._lastKnownDocumentContent = newText;
-            }.bind(this), 500);
+            }.bind(this), 250);
         };
         /**
          * This should be called when we notice a change in our text view. It compares the old text

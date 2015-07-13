@@ -215,7 +215,20 @@ module WootTypes {
 
         // Returns -1 if not present.
         indexOfCharWithId(charId: WCharId): number {
-            return this._chars.indexOf(this._charById[charId.toString()]);
+            // TODO(ryan): This line will make us crash the browser on the following
+            // repro steps:
+            // 1. Paste in 1000 chars
+            // 2. Delete the 1000 chars
+            // 3. Paste them in again
+            //var res = this._chars.indexOf(this._charById[charId.toString()]);
+
+            for (var i = 0; i < this._chars.length; i++) {
+                var char = this._chars[i];
+                if (char.id.toString() == charId.toString()) {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         // Returns `true` if a character with the passed in id is in this string

@@ -100,7 +100,7 @@ module WootDemoPage {
                 }
                 this.processLocalTextDiff(this._lastKnownDocumentContent, newText);
                 this._lastKnownDocumentContent = newText;
-            }.bind(this), 500);
+            }.bind(this), 250);
         }
 
         /**
