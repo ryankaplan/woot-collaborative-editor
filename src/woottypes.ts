@@ -215,13 +215,7 @@ module WootTypes {
 
         // Returns -1 if not present.
         indexOfCharWithId(charId: WCharId): number {
-            for (var i = 0; i < this._chars.length; i++) {
-                var char = this._chars[i];
-                if (char.id.toString() == charId.toString()) {
-                    return i;
-                }
-            }
-            return -1;
+            return this._chars.indexOf(this._charById[charId.toString()]);
         }
 
         // Returns `true` if a character with the passed in id is in this string
