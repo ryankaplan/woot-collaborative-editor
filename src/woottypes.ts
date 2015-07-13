@@ -27,10 +27,12 @@ module WootTypes {
     export class WCharId {
         site: number;
         clock: number;
+        _stringVal: string;
 
         constructor(site: number, clock: number) {
             this.site = site;
             this.clock = clock;
+            this._stringVal = this.site + "/" + this.clock;
         }
 
         // Returns -1 for less than, 0 for equal, 1 for greater than
@@ -43,7 +45,11 @@ module WootTypes {
         }
 
         toString(): string {
-            return this.site + "/" + this.clock;
+            // Cached because this gets called a lot and it was showing up
+            // in the Chrome profiler. This obviously breaks if site and clock
+            // are changed. This should never happend, but maybe there's access
+            // control with typescript. Look into it -- TODO:(ryan).
+            return this._stringVal;
         }
 
         static decodeJsonCharId(jsonChar: any): WCharId {
