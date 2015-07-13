@@ -143,6 +143,14 @@ module WootTypes {
         }
     }
 
+    export interface InsertTimingStats {
+        numInsertOpsGenerated: number;
+        timeSpentEach: Array<number>;
+        whileLoopIterationsEach: Array<number>;
+        totalGroupLoopIterationsEach: Array<number>;
+        totalWalkLoopIterationsEach: Array<number>;
+    }
+
     /**
      * This is where most of the collaboration logic lives.
      */
@@ -174,7 +182,7 @@ module WootTypes {
          *
          * Returns the operation that made the modification.
          */
-        generateInsertOperation(char: string, position: number): WStringOperation {
+        generateInsertOperation(char: string, position: number, stats: InsertTimingStats): WStringOperation {
             log("[generateInsertOperation] Entered with char ", char, "and position ", position);
             var nextId = this._idGenerator();
             var previous = this.ithVisible(position);
@@ -183,7 +191,8 @@ module WootTypes {
             log("[generateInsertOperation] Next", next);
             var newChar = new WChar(nextId, char, previous.id, next.id);
             log("[generateInsertOperation] newChar", newChar);
-            this.integrateInsertion(newChar);
+            stats.numInsertOpsGenerated += 1;
+            this.integrateInsertion(newChar, stats);
             return new WStringOperation(WOperationType.INSERT, newChar);
         }
 
@@ -241,15 +250,32 @@ module WootTypes {
             }
         }
 
-        integrateInsertion(newChar: WChar) {
+        integrateInsertion(newChar: WChar, stats: InsertTimingStats) {
             log("[integrateInsertion] begin");
-            this._integrateInsertionHelper(newChar, newChar.previous, newChar.next);
+            this._integrateInsertionHelper(newChar, newChar.previous, newChar.next, stats);
         }
+
+        /*
+
+         numInsertOpsGenerated: 1
+         timeSpentEach:  974.4269999937387
+         totalGroupLoopIterationsEach: 1969132
+         totalWalkLoopIterationsEach: 1985
+         whileLoopIterationsEach: Array[1]0: 1985
+
+          add 01234567890 * 10 * 5 * 3, delete,
+
+         */
 
         // This function is an iterative version of the logic in the code block at the top
         // of page 11 in the paper. We were hitting maximum call stack issues with the recursive
         // version.
-        _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId) {
+        _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId, stats: InsertTimingStats) {
+            var startMs = performance.now();
+            var whileLoopIterations = 0;
+            var groupLoopIterations = 0;
+            var walkLoopIterations = 0;
+
             log("_integrateInsertionHelper] begin with chars", this._chars);
             /**
              * Consider the following scenario:
@@ -270,6 +296,7 @@ module WootTypes {
             }
 
             while (true) {
+                whileLoopIterations += 1;
                 if (!(previousId.toString() in indexById)) {
                     throw Error("[_integrateInsertionHelper] Previous index not present in string!");
                 }
@@ -290,6 +317,10 @@ module WootTypes {
                     this._chars.splice(nextIndex, 0, newChar);
                     this._charById[newChar.id.toString()] = newChar;
                     log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
+                    stats.timeSpentEach.push(performance.now() - startMs);
+                    stats.whileLoopIterationsEach.push(whileLoopIterations);
+                    stats.totalGroupLoopIterationsEach.push(groupLoopIterations);
+                    stats.totalWalkLoopIterationsEach.push(walkLoopIterations);
                     return;
                 }
 
@@ -316,6 +347,7 @@ module WootTypes {
                     if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
                         lChars.push(dChar);
                     }
+                    groupLoopIterations += 1;
                 }
                 lChars.push(this._chars[nextIndex]);
 
@@ -326,17 +358,17 @@ module WootTypes {
                 var i = 1;
                 while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
                     i += 1;
-                    log("Just got to index ", i, " about to compare characters ",
-                        lChars[i].debugString(), " and " , newChar.debugString());
+                    walkLoopIterations += 1;
                 }
-                log("Nope, were done now");
 
-                log("We decided to insert at index ", i);
+                log("We're done and we decided to insert at index ", i);
                 log("This is lChars", lChars);
-                log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
+                loggingEnabled && log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
                 previousId = lChars[i - 1].id;
                 nextId = lChars[i].id;
             }
+
+            throw Error("We never get here");
         }
 
         integrateDeletion(charToDelete: WChar) {

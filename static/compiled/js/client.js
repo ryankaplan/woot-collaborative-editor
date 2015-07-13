@@ -99,6 +99,13 @@ var WootDemoPage;
             // it applies to, like ["DIFF_DELETE", "monkey"] or ["DIFF_EQUAL", "ajsk"] or
             // ["DIFF_INSERT", "rabbit"]
             var results = differ.diff_main(oldText, newText);
+            var stats = {
+                numInsertOpsGenerated: 0,
+                timeSpentEach: [],
+                whileLoopIterationsEach: [],
+                totalGroupLoopIterationsEach: [],
+                totalWalkLoopIterationsEach: []
+            };
             // Turn the results into a set of operations that our woot algorithm understands
             var cursorLocation = 0;
             var operationBuffer = [];
@@ -115,7 +122,7 @@ var WootDemoPage;
                 else if (op == DIFF_INSERT) {
                     for (var j = 0; j < text.length; j++) {
                         log("Insert char " + text[j] + " after char at index " + cursorLocation);
-                        var operation = this._string.generateInsertOperation(text[j], cursorLocation);
+                        var operation = this._string.generateInsertOperation(text[j], cursorLocation, stats);
                         operationBuffer.push(operation);
                         cursorLocation += 1;
                     }
@@ -124,10 +131,18 @@ var WootDemoPage;
                     cursorLocation += text.length;
                 }
             }
+            console.log(stats);
             console.log("[Timing] Non-socket work of processLocalTextDiff took " + (performance.now() - startTimeMs) + " milliseconds.");
             this.sendMessage("text_operations", operationBuffer);
         };
         DocumentController.prototype.handleRemoteOperations = function (jsonOperations) {
+            var stats = {
+                numInsertOpsGenerated: 0,
+                timeSpentEach: [],
+                whileLoopIterationsEach: [],
+                totalGroupLoopIterationsEach: [],
+                totalWalkLoopIterationsEach: []
+            };
             var operations = [];
             for (var i = 0; i < jsonOperations.length; i++) {
                 var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
@@ -139,7 +154,7 @@ var WootDemoPage;
                 }
                 if (operation.opType == 0 /* INSERT */) {
                     log("[handleRemoteOperation] integrating insert");
-                    this._string.integrateInsertion(operation.char);
+                    this._string.integrateInsertion(operation.char, stats);
                 }
                 else {
                     log("[handleRemoteOperation] integrating delete");
