@@ -37,7 +37,7 @@ module WootDemoPage {
         _socket: io;
         // _siteId is -1 before we hear back from the server
         _siteId: number;
-        // Counts the operations made by this site
+        // Counts the operations made by this siteNumber
         _operationCounter: number;
         // jQuery wrapped div of the textarea that we're watching
         _textArea: any;

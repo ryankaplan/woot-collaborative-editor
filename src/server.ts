@@ -12,13 +12,8 @@ var nextSiteId = 1;
 
 io.on('connection', function (socket) {
     // Give the client a client id
-    console.log("Sending site_id " + nextSiteId);
     socket.emit('site_id', nextSiteId);
     nextSiteId += 1;
-
-    socket.on('chat_message', function (msgData) {
-        io.emit('chat_message', msgData);
-    });
 
     // msgData is a list of WStringOperation instances
     socket.on("text_operations", function (msgData) {

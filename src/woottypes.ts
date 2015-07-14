@@ -20,40 +20,40 @@ module WootTypes {
 
     /**
      * In our algorithm, every character in a document gets a unique id that it
-     * keeps forever. The id has two parts: the clientId of the site where it
-     * was generated, and a 'clock' that increments every time a client generates
+     * keeps forever. The id has two parts: the clientId of the siteNumber where it
+     * was generated, and a 'opNumber' that increments every time a client generates
      * a new character.
      */
     export class WCharId {
-        site: number;
-        clock: number;
+        siteNumber: number;
+        opNumber: number;
         _stringVal: string;
 
         constructor(site: number, clock: number) {
-            this.site = site;
-            this.clock = clock;
-            this._stringVal = this.site + "/" + this.clock;
+            this.siteNumber = site;
+            this.opNumber = clock;
+            this._stringVal = this.siteNumber + "/" + this.opNumber;
         }
 
         // Returns -1 for less than, 0 for equal, 1 for greater than
         compare(other: WCharId): number {
-            if (this.site === other.site) {
-                // Sites are the same, compare by clock
-                return compareNumbers(this.clock, other.clock);
+            if (this.siteNumber === other.siteNumber) {
+                // Sites are the same, compare by opNumber
+                return compareNumbers(this.opNumber, other.opNumber);
             }
-            return compareNumbers(this.site, other.site);
+            return compareNumbers(this.siteNumber, other.siteNumber);
         }
 
         toString(): string {
             // Cached because this gets called a lot and it was showing up
-            // in the Chrome profiler. This obviously breaks if site and clock
+            // in the Chrome profiler. This obviously breaks if siteNumber and opNumber
             // are changed. This should never happend, but maybe there's access
             // control with typescript. Look into it -- TODO:(ryan).
             return this._stringVal;
         }
 
         static decodeJsonCharId(jsonChar: any): WCharId {
-            return new WCharId(jsonChar.site, jsonChar.clock);
+            return new WCharId(jsonChar.siteNumber, jsonChar.opNumber);
         }
     }
 
@@ -97,14 +97,6 @@ module WootTypes {
                 'visible': this.visible,
                 'character': this.character
             });
-        }
-
-        isBegin() {
-            return this.id.site === -1 && this.id.clock === 0;
-        }
-
-        isEnd() {
-            return this.id.site === -1 && this.id.clock === 1;
         }
 
         static begin(): WChar {
@@ -155,7 +147,7 @@ module WootTypes {
      * This is where most of the collaboration logic lives.
      */
     export class WString {
-        // Function that generates WCharIds for a particular site
+        // Function that generates WCharIds for a particular siteNumber
         _idGenerator: (() => WCharId);
         // List of all WChars that comprise our string
         _chars: Array<WChar>;
@@ -183,14 +175,10 @@ module WootTypes {
          * Returns the operation that made the modification.
          */
         generateInsertOperation(char: string, position: number, stats: InsertTimingStats): WStringOperation {
-            log("[generateInsertOperation] Entered with char ", char, "and position ", position);
             var nextId = this._idGenerator();
             var previous = this.ithVisible(position);
-            log("[generateInsertOperation] Previous", previous);
             var next = this.ithVisible(position + 1);
-            log("[generateInsertOperation] Next", next);
             var newChar = new WChar(nextId, char, previous.id, next.id);
-            log("[generateInsertOperation] newChar", newChar);
             stats.numInsertOpsGenerated += 1;
             this.integrateInsertion(newChar, stats);
             return new WStringOperation(WOperationType.INSERT, newChar);
