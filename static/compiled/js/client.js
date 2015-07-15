@@ -77,7 +77,7 @@ var WootDemoPage;
             // Clear the last handler for a text change event in case it hasn't happened
             window.clearTimeout(this._lastSyncTimeoutId);
             this._lastSyncTimeoutId = setTimeout(function () {
-                console.log("Passed inactivity threshold. Syncing document.");
+                log("Passed inactivity threshold. Syncing document.");
                 var newText = this._textArea.val();
                 if (newText == this._lastKnownDocumentContent) {
                     log("Returning early; nothing to sync!");
@@ -94,7 +94,7 @@ var WootDemoPage;
          */
         DocumentController.prototype.processLocalTextDiff = function (oldText, newText) {
             var startTimeMs = performance.now();
-            console.log("Processing text diff of length", Math.abs(oldText.length - newText.length));
+            log("Processing text diff of length", Math.abs(oldText.length - newText.length));
             var differ = new diff_match_patch();
             // Each `any` is a two-element list of text-operation-type and the text that
             // it applies to, like ["DIFF_DELETE", "monkey"] or ["DIFF_EQUAL", "ajsk"] or
@@ -132,8 +132,8 @@ var WootDemoPage;
                     cursorLocation += text.length;
                 }
             }
-            console.log(stats);
-            console.log("[Timing] Non-socket work of processLocalTextDiff took " + (performance.now() - startTimeMs) + " milliseconds.");
+            log(stats);
+            log("[Timing] Non-socket work of processLocalTextDiff took " + (performance.now() - startTimeMs) + " milliseconds.");
             this.sendMessage("text_operations", operationBuffer);
         };
         DocumentController.prototype.handleRemoteOperations = function (jsonOperations) {
