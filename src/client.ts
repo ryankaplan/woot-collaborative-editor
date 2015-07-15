@@ -44,6 +44,9 @@ module WootDemoPage {
         _lastKnownDocumentContent: string;
         _string: WString;
 
+        // This is where we keep remote operations until they're ready to be executed
+        _pendingRemoteOperations: Array<WStringOperation>;
+
         _lastSyncTimeoutId: number;
 
         constructor(elementSelector: string) {
@@ -54,6 +57,7 @@ module WootDemoPage {
             this._textArea = $(elementSelector);
             this._lastKnownDocumentContent = "";
             this._string = null;
+            this._pendingRemoteOperations = [];
 
             this._textArea.hide(); // Re-shown in handleReceiveSiteId
             this._socket.on('site_id', this.handleReceiveSiteId.bind(this));
@@ -171,15 +175,24 @@ module WootDemoPage {
                 totalWalkLoopIterationsEach: []
             };
 
-            var operations = [];
             for (var i = 0; i < jsonOperations.length; i++) {
                 var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
+                this._pendingRemoteOperations.push(operation);
+            }
+
+            var newPendingOperations = [];
+            for (var i = 0; i < this._pendingRemoteOperations.length; i++) {
+                var operation = this._pendingRemoteOperations[i];
+                if (!this._string.isExecutable(operation)) {
+                    newPendingOperations.push(operation);
+                    continue;
+                }
 
                 log("[handleRemoteOperation] Entered with operation", operation);
                 log(this._string);
                 if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
-                    log("[handleRemoteOperation] returning early");
-                    return;
+                    log("[handleRemoteOperation] returning early because we already have this op");
+                    continue;
                 }
 
                 if (operation.opType == WOperationType.INSERT) {
@@ -189,12 +202,15 @@ module WootDemoPage {
                     log("[handleRemoteOperation] integrating delete");
                     this._string.integrateDeletion(operation.char);
                 }
-
-                // Set this so that we don't think the user made this change and enter
-                // a feedback loop
-                this._lastKnownDocumentContent = this._string.stringForDisplay();
-                this._textArea.val(this._string.stringForDisplay());
             }
+
+            // Set this so that we don't think the user made this change and enter
+            // a feedback loop
+            this._lastKnownDocumentContent = this._string.stringForDisplay();
+            this._textArea.val(this._string.stringForDisplay());
+
+            // TODO(ryan): This should be a dag, not a list...
+            this._pendingRemoteOperations = newPendingOperations;
         }
 
         // Sends a message to the server. Returns false if sending failed

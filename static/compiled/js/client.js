@@ -44,6 +44,7 @@ var WootDemoPage;
             this._textArea = $(elementSelector);
             this._lastKnownDocumentContent = "";
             this._string = null;
+            this._pendingRemoteOperations = [];
             this._textArea.hide(); // Re-shown in handleReceiveSiteId
             this._socket.on('site_id', this.handleReceiveSiteId.bind(this));
             this._socket.on('text_operations', this.handleRemoteOperations.bind(this));
@@ -143,14 +144,22 @@ var WootDemoPage;
                 totalGroupLoopIterationsEach: [],
                 totalWalkLoopIterationsEach: []
             };
-            var operations = [];
             for (var i = 0; i < jsonOperations.length; i++) {
                 var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
+                this._pendingRemoteOperations.push(operation);
+            }
+            var newPendingOperations = [];
+            for (var i = 0; i < this._pendingRemoteOperations.length; i++) {
+                var operation = this._pendingRemoteOperations[i];
+                if (!this._string.isExecutable(operation)) {
+                    newPendingOperations.push(operation);
+                    continue;
+                }
                 log("[handleRemoteOperation] Entered with operation", operation);
                 log(this._string);
                 if (operation.opType == 0 /* INSERT */ && this._string.contains(operation.char.id)) {
-                    log("[handleRemoteOperation] returning early");
-                    return;
+                    log("[handleRemoteOperation] returning early because we already have this op");
+                    continue;
                 }
                 if (operation.opType == 0 /* INSERT */) {
                     log("[handleRemoteOperation] integrating insert");
@@ -160,11 +169,13 @@ var WootDemoPage;
                     log("[handleRemoteOperation] integrating delete");
                     this._string.integrateDeletion(operation.char);
                 }
-                // Set this so that we don't think the user made this change and enter
-                // a feedback loop
-                this._lastKnownDocumentContent = this._string.stringForDisplay();
-                this._textArea.val(this._string.stringForDisplay());
             }
+            // Set this so that we don't think the user made this change and enter
+            // a feedback loop
+            this._lastKnownDocumentContent = this._string.stringForDisplay();
+            this._textArea.val(this._string.stringForDisplay());
+            // TODO(ryan): This should be a dag, not a list...
+            this._pendingRemoteOperations = newPendingOperations;
         };
         // Sends a message to the server. Returns false if sending failed
         // e.g. if we haven't received our siteId yet.

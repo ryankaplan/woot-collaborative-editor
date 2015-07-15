@@ -222,8 +222,6 @@ module WootTypes {
             return id.toString() in this._charById;
         }
 
-        // TODO(ryan): implement pooling. Right now we just assume that all ops are executable
-        // immediately. This is bad D:
         isExecutable(op: WStringOperation) {
             if (op.opType === WOperationType.INSERT) {
                 return this.contains(op.char.previous) && this.contains(op.char.next);
