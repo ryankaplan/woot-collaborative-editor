@@ -34,7 +34,7 @@ module WootDemoPage {
      *    our WString instance and apply them to the text in #collab-doc.
      */
     export class DocumentController {
-        _socket: io;
+        _socket: SocketIOClient.Socket;
         // _siteId is -1 before we hear back from the server
         _siteId: number;
         // Counts the operations made by this siteNumber
@@ -69,7 +69,7 @@ module WootDemoPage {
             return new WCharId(this._siteId, this._operationCounter);
         }
 
-        handleReceiveSiteId(siteId) {
+        handleReceiveSiteId(siteId: number) {
             log("DocumentController received siteId: ", siteId);
             this._siteId = siteId;
             this._textArea.show();
@@ -132,7 +132,7 @@ module WootDemoPage {
 
             // Turn the results into a set of operations that our woot algorithm understands
             var cursorLocation = 0;
-            var operationBuffer = [];
+            var operationBuffer: Array<any> = [];
             for (var i = 0; i < results.length; i++) {
                 var op = results[i][0];
                 var text = results[i][1];
@@ -166,7 +166,7 @@ module WootDemoPage {
             this.sendMessage("text_operations", operationBuffer);
         }
 
-        handleRemoteOperations(jsonOperations) {
+        handleRemoteOperations(jsonOperations: Array<any>) {
             var stats: WootTypes.InsertTimingStats = {
                 numInsertOpsGenerated: 0,
                 timeSpentEach: [],
@@ -180,7 +180,7 @@ module WootDemoPage {
                 this._pendingRemoteOperations.push(operation);
             }
 
-            var newPendingOperations = [];
+            var newPendingOperations: Array<any> = [];
             for (var i = 0; i < this._pendingRemoteOperations.length; i++) {
                 var operation = this._pendingRemoteOperations[i];
 
@@ -231,7 +231,7 @@ module WootDemoPage {
     }
 }
 
-var pageController = null;
+var pageController: WootDemoPage.DocumentController = null;
 $(document).ready(function () {
     pageController = new WootDemoPage.DocumentController("#woot-document");
 });

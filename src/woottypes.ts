@@ -322,7 +322,7 @@ module WootTypes {
              * once over the string at the beginning of the method and building up a map
              * of WCharId -> location in _chars.
              */
-            var indexById = {};
+            var indexById: { [id: string]: number } = {};
             for (var i = 0; i < this._chars.length; i++) {
                 var char: WChar = this._chars[i];
                 indexById[char.id().toString()] = i;
@@ -363,7 +363,7 @@ module WootTypes {
 
                 // lChars is 'L' from page 11 of the paper and dChar is d_0, d_1, ... from
                 // the same page
-                var lChars = [];
+                var lChars: Array<WChar> = [];
                 lChars.push(this._chars[previousIndex]);
                 for (var i = previousIndex + 1; i < nextIndex; i++) {
                     var dChar = this._chars[i];
