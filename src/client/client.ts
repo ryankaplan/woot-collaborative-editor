@@ -1,7 +1,7 @@
-/// <reference path='typings/diff_match_patch/diff_match_patch.d.ts' />
-/// <reference path='typings/jquery/jquery.d.ts' />
-/// <reference path='typings/socketio/client.d.ts' />
-/// <reference path='woottypes.ts' />
+/// <reference path='../typings/diff_match_patch/diff_match_patch.d.ts' />
+/// <reference path='../typings/jquery/jquery.d.ts' />
+/// <reference path='../typings/socketio/client.d.ts' />
+/// <reference path='../woot/types.ts' />
 
 module WootDemoPage {
     var loggingEnabled = false;

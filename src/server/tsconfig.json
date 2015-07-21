@@ -4,11 +4,10 @@
         "noImplicitAny": true,
         "removeComments": true,
         "preserveConstEnums": true,
-        "out": "static/compiled/js/compiled.js",
+        "out": "static/compiled/js/server.js",
         "sourceMap": true
     },
     "files": [
-        "src/client.ts",
-        "src/woottypes.ts"
+        "server.ts"
     ]
 }

@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "out": "static/compiled/js/client.js",
+        "sourceMap": true
+    },
+    "files": [
+        "../woot/types.ts",
+        "client.ts"
+    ]
+}

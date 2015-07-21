@@ -11,8 +11,9 @@ Here's a gif of it in action:
 
 ![Gif of two documents](https://github.com/ryankaplan/collaborative-editing/blob/master/static/images/demo.gif?raw=true)
 
-# Development setup
+# Running the code
 
-1. Get typescript compiling. I use WebStorm's integrated typescript compiler to compile files from /src to
-    /static/compiled/js.
-2. Run ./debug.sh which needs nodemon installed
+1. Run `tsc -p src/client` to compile the client and `tsc -p src/server` to compile the server
+2. Run `node static/compiled/js/server.js` (yeah, I know server.js shouldn't be in `static` :/)
+3. Visit `localhost:3000` in a browser
+4. Start typing!
