@@ -141,7 +141,7 @@ module WootDemoPage {
                     for (var j = 0; j < text.length; j++) {
                         log("Delete char " + text[j] + " at index " + cursorLocation);
                         var operation = this._string.generateDeleteOperation(text[j], cursorLocation);
-                        operationBuffer.push(operation);
+                        operationBuffer.push(operation.toJSON());
                         // cursorLocation doesn't change. We moved forward one character in the string
                         // but deleted that character, so our 'index' into the string hasn't changed.
                     }
@@ -151,7 +151,7 @@ module WootDemoPage {
                     for (var j = 0; j < text.length; j++) {
                         log("Insert char " + text[j] + " after char at index " + cursorLocation);
                         var operation = this._string.generateInsertOperation(text[j], cursorLocation, stats);
-                        operationBuffer.push(operation);
+                        operationBuffer.push(operation.toJSON());
                         cursorLocation += 1;
                     }
                 }
@@ -176,13 +176,14 @@ module WootDemoPage {
             };
 
             for (var i = 0; i < jsonOperations.length; i++) {
-                var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
+                var operation = WStringOperation.fromJSON(jsonOperations[i]);
                 this._pendingRemoteOperations.push(operation);
             }
 
             var newPendingOperations = [];
             for (var i = 0; i < this._pendingRemoteOperations.length; i++) {
                 var operation = this._pendingRemoteOperations[i];
+
                 if (!this._string.isExecutable(operation)) {
                     newPendingOperations.push(operation);
                     continue;
@@ -190,17 +191,21 @@ module WootDemoPage {
 
                 log("[handleRemoteOperation] Entered with operation", operation);
                 log(this._string);
-                if (operation.opType == WOperationType.INSERT && this._string.contains(operation.char.id)) {
+                if (operation.opType() == WOperationType.INSERT && this._string.contains(operation.char().id())) {
                     log("[handleRemoteOperation] returning early because we already have this op");
                     continue;
                 }
 
-                if (operation.opType == WOperationType.INSERT) {
-                    log("[handleRemoteOperation] integrating insert");
-                    this._string.integrateInsertion(operation.char, stats);
-                } else {
-                    log("[handleRemoteOperation] integrating delete");
-                    this._string.integrateDeletion(operation.char);
+                switch (operation.opType()) {
+                    case WOperationType.INSERT:
+                        log("[handleRemoteOperation] integrating insert");
+                        this._string.integrateInsertion(operation.char(), stats);
+                        break;
+
+                    case WOperationType.DELETE:
+                        log("[handleRemoteOperation] integrating delete");
+                        this._string.integrateDeletion(operation.char());
+                        break;
                 }
             }
 

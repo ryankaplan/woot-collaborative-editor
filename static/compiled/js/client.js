@@ -117,14 +117,14 @@ var WootDemoPage;
                     for (var j = 0; j < text.length; j++) {
                         log("Delete char " + text[j] + " at index " + cursorLocation);
                         var operation = this._string.generateDeleteOperation(text[j], cursorLocation);
-                        operationBuffer.push(operation);
+                        operationBuffer.push(operation.toJSON());
                     }
                 }
                 else if (op == DIFF_INSERT) {
                     for (var j = 0; j < text.length; j++) {
                         log("Insert char " + text[j] + " after char at index " + cursorLocation);
                         var operation = this._string.generateInsertOperation(text[j], cursorLocation, stats);
-                        operationBuffer.push(operation);
+                        operationBuffer.push(operation.toJSON());
                         cursorLocation += 1;
                     }
                 }
@@ -145,7 +145,7 @@ var WootDemoPage;
                 totalWalkLoopIterationsEach: []
             };
             for (var i = 0; i < jsonOperations.length; i++) {
-                var operation = WStringOperation.decodeJsonOperation(jsonOperations[i]);
+                var operation = WStringOperation.fromJSON(jsonOperations[i]);
                 this._pendingRemoteOperations.push(operation);
             }
             var newPendingOperations = [];
@@ -157,17 +157,19 @@ var WootDemoPage;
                 }
                 log("[handleRemoteOperation] Entered with operation", operation);
                 log(this._string);
-                if (operation.opType == 0 /* INSERT */ && this._string.contains(operation.char.id)) {
+                if (operation.opType() == 0 /* INSERT */ && this._string.contains(operation.char().id())) {
                     log("[handleRemoteOperation] returning early because we already have this op");
                     continue;
                 }
-                if (operation.opType == 0 /* INSERT */) {
-                    log("[handleRemoteOperation] integrating insert");
-                    this._string.integrateInsertion(operation.char, stats);
-                }
-                else {
-                    log("[handleRemoteOperation] integrating delete");
-                    this._string.integrateDeletion(operation.char);
+                switch (operation.opType()) {
+                    case 0 /* INSERT */:
+                        log("[handleRemoteOperation] integrating insert");
+                        this._string.integrateInsertion(operation.char(), stats);
+                        break;
+                    case 1 /* DELETE */:
+                        log("[handleRemoteOperation] integrating delete");
+                        this._string.integrateDeletion(operation.char());
+                        break;
                 }
             }
             // Set this so that we don't think the user made this change and enter

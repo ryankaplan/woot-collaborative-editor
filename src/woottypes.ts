@@ -25,34 +25,48 @@ module WootTypes {
      * a new character.
      */
     export class WCharId {
-        siteNumber: number;
-        opNumber: number;
-        _stringVal: string;
+        private _stringVal: string = null;
 
-        constructor(site: number, clock: number) {
-            this.siteNumber = site;
-            this.opNumber = clock;
-            this._stringVal = this.siteNumber + "/" + this.opNumber;
+        constructor(
+            private _siteNumber: number,
+            private _opNumber: number
+        ) {
+        }
+
+        siteNumber(): number {
+            return this._siteNumber;
+        }
+
+        opNumber(): number {
+            return this._opNumber
         }
 
         // Returns -1 for less than, 0 for equal, 1 for greater than
         compare(other: WCharId): number {
-            if (this.siteNumber === other.siteNumber) {
+            if (this._siteNumber === other._siteNumber) {
                 // Sites are the same, compare by opNumber
-                return compareNumbers(this.opNumber, other.opNumber);
+                return compareNumbers(this._opNumber, other._opNumber);
             }
-            return compareNumbers(this.siteNumber, other.siteNumber);
+            return compareNumbers(this._siteNumber, other._siteNumber);
         }
 
         toString(): string {
+            if (!this._stringVal) {
+                this._stringVal = this._siteNumber + "/" + this._opNumber;
+            }
             // Cached because this gets called a lot and it was showing up
-            // in the Chrome profiler. This obviously breaks if siteNumber and opNumber
-            // are changed. This should never happend, but maybe there's access
-            // control with typescript. Look into it -- TODO:(ryan).
+            // in the Chrome profiler.
             return this._stringVal;
         }
 
-        static decodeJsonCharId(jsonChar: any): WCharId {
+        toJSON(): any {
+            return {
+                "siteNumber": this._siteNumber,
+                "opNumber": this._opNumber
+            };
+        }
+
+        static fromJSON(jsonChar: any): WCharId {
             return new WCharId(jsonChar.siteNumber, jsonChar.opNumber);
         }
     }
@@ -61,42 +75,73 @@ module WootTypes {
      * This represents a character in our WString class.
      */
     class WChar {
-        // The id assigned at creation-time that this character keeps forever
-        id: WCharId;
         // false if this character has been 'deleted' from the document
-        visible: boolean;
-        // The user-visible character that this WChar represents
-        character: string;
+        private _visible: boolean = true;
 
-        // As per the algorithm outlines in the document, each character specifies
-        // which two characters it belongs between. These are the ids of the chars
-        // that must go somewhere before and somewhere after this character respectively.
-        previous: WCharId;
-        next: WCharId;
+        constructor(
+            // The id assigned at creation-time that this character keeps forever
+            private _id: WCharId,
 
-        constructor(id: WCharId, character: string, previous: WCharId, next: WCharId) {
-            this.id = id;
-            this.visible = true;
-            this.character = character;
-            this.previous = previous;
-            this.next = next;
+            // The user-visible character that this WChar represents
+            private _character: string,
+
+            // As per the algorithm outlines in the document, each character specifies
+            // which two characters it belongs between. These are the ids of the chars
+            // that must go somewhere before and somewhere after this character respectively.
+            private _previous: WCharId,
+            private _next: WCharId
+        ) {
         }
 
-        static decodeJsonChar(jsonChar: any): WChar {
-            var id = WCharId.decodeJsonCharId(jsonChar.id);
-            var previous = WCharId.decodeJsonCharId(jsonChar.previous);
-            var next = WCharId.decodeJsonCharId(jsonChar.next);
-            var char = new WChar(id, jsonChar.character, previous, next);
-            char.visible = jsonChar.visible;
-            return char;
+        id(): WCharId {
+            return this._id;
         }
 
-        debugString(): string {
+        character(): string {
+            return this._character;
+        }
+
+        previous(): WCharId {
+            return this._previous;
+        }
+
+        next(): WCharId {
+            return this._next;
+        }
+
+        visible(): boolean {
+            return this._visible;
+        }
+
+        setVisible(visible: boolean): void {
+            this._visible = visible;
+        }
+
+        debug(): string {
             return JSON.stringify({
-                'id': this.id.toString(),
-                'visible': this.visible,
-                'character': this.character
+                'id': this._id.toString(),
+                'visible': this._visible,
+                'character': this._character
             });
+        }
+
+        toJSON(): any {
+            return {
+                "id": this._id,
+                "previous": this._previous.toJSON(),
+                "next": this._next.toJSON(),
+                "character": this._character,
+                "visible": this._visible
+            }
+        }
+
+        static fromJSON(jsonChar: any): WChar {
+            var id = WCharId.fromJSON(jsonChar.id);
+            var previous = WCharId.fromJSON(jsonChar.previous);
+            var next = WCharId.fromJSON(jsonChar.next);
+            var char = new WChar(id, jsonChar.character, previous, next);
+            char._visible = jsonChar.visible;
+            return char;
         }
 
         static begin(): WChar {
@@ -120,17 +165,30 @@ module WootTypes {
     }
 
     export class WStringOperation {
-        opType: WOperationType;
-        char: WChar;
-
-        constructor(opType: WOperationType, char: WChar) {
-            this.opType = opType;
-            this.char = char;
+        constructor(
+            private _opType: WOperationType,
+            private _char: WChar
+        ) {
         }
 
-        static decodeJsonOperation(operation: any): WStringOperation {
+        opType(): WOperationType {
+            return this._opType;
+        }
+
+        char(): WChar {
+            return this._char;
+        }
+
+        toJSON(): any {
+            return {
+                "opType": this._opType,
+                "char": this._char.toJSON()
+            };
+        }
+
+        static fromJSON(operation: any): WStringOperation {
             var opType = operation.opType;
-            var char = WChar.decodeJsonChar(operation.char);
+            var char = WChar.fromJSON(operation.char);
             return new WStringOperation(opType, char);
         }
     }
@@ -147,23 +205,20 @@ module WootTypes {
      * This is where most of the collaboration logic lives.
      */
     export class WString {
-        // Function that generates WCharIds for a particular siteNumber
-        _idGenerator: (() => WCharId);
         // List of all WChars that comprise our string
-        _chars: Array<WChar>;
-        _charById: { [charId: string]: WChar };
+        _chars: Array<WChar> = [];
+        _charById: { [charId: string]: WChar } = {};
 
-        constructor(idGenerator: (() => WCharId)) {
-            this._idGenerator = idGenerator;
-            this._chars = [];
-            this._charById = {};
-
+        constructor(
+            // Function that generates WCharIds for a particular siteNumber
+            private _idGenerator: (() => WCharId)
+        ) {
             var begin = WChar.begin();
             var end = WChar.end();
             this._chars.push(begin);
             this._chars.push(end);
-            this._charById[begin.id.toString()] = begin;
-            this._charById[end.id.toString()] = end;
+            this._charById[begin.id().toString()] = begin;
+            this._charById[end.id().toString()] = end;
         }
 
         /**
@@ -176,69 +231,60 @@ module WootTypes {
          */
         generateInsertOperation(char: string, position: number, stats: InsertTimingStats): WStringOperation {
             var nextId = this._idGenerator();
-            var previous = this.ithVisible(position);
-            var next = this.ithVisible(position + 1);
-            var newChar = new WChar(nextId, char, previous.id, next.id);
+            var previous = this._ithVisible(position);
+            var next = this._ithVisible(position + 1);
+            var newChar = new WChar(nextId, char, previous.id(), next.id());
             stats.numInsertOpsGenerated += 1;
             this.integrateInsertion(newChar, stats);
             return new WStringOperation(WOperationType.INSERT, newChar);
         }
 
         generateDeleteOperation(char: string, position: number): WStringOperation {
-            var charToDelete = this.ithVisible(position + 1);
+            var charToDelete = this._ithVisible(position + 1);
             this.integrateDeletion(charToDelete);
             return new WStringOperation(WOperationType.DELETE, charToDelete);
         }
 
-        /**
-         * Returns the ith visible character in this string. WChar.begin and WChar.end
-         * are both visible. TODO(ryan): this could be more efficient if we keep an
-         * additional list of only-visible chars.
-         */
-        ithVisible(position: number): WChar {
-            log("[ithVisible] position ", position);
-            var foundSoFar = -1;
-            for (var i = 0; i < this._chars.length; i++) {
-                var char = this._chars[i];
-                if (char.visible) {
-                    foundSoFar += 1;
-                    if (foundSoFar === position) {
-                        return this._chars[i];
-                    }
-                }
-            }
-            throw Error("There is no " + position + "th visible char!");
-        }
-
-        // Returns -1 if not present.
-        indexOfCharWithId(charId: WCharId): number {
-            var char = this._charById[charId.toString()];
-            return this._chars.indexOf(char);
-        }
-
         // Returns `true` if a character with the passed in id is in this string
-        // (visible or not) TODO(ryan): this could be O(1)
+        // (visible or not)
         contains(id: WCharId): boolean {
             return id.toString() in this._charById;
         }
 
         isExecutable(op: WStringOperation) {
-            if (op.opType === WOperationType.INSERT) {
-                return this.contains(op.char.previous) && this.contains(op.char.next);
-            }
+            switch (op.opType()) {
+                case WOperationType.INSERT:
+                    return this.contains(op.char().previous()) && this.contains(op.char().next());
+                    break;
 
-            else if (op.opType === WOperationType.DELETE) {
-                return this.contains(op.char.id);
-            }
-
-            else {
-                throw Error("Unrecognized operation type " + op.opType);
+                case WOperationType.DELETE:
+                    return this.contains(op.char().id());
+                    break;
             }
         }
 
         integrateInsertion(newChar: WChar, stats: InsertTimingStats) {
             log("[integrateInsertion] begin");
-            this._integrateInsertionHelper(newChar, newChar.previous, newChar.next, stats);
+            this._integrateInsertionHelper(newChar, newChar.previous(), newChar.next(), stats);
+        }
+
+        integrateDeletion(charToDelete: WChar) {
+            var char = this._charById[charToDelete.id().toString()];
+            char.setVisible(false);
+        }
+
+        // Call this to get a string to show to the user
+        stringForDisplay() {
+            var result = "";
+            for (var i = 0; i < this._chars.length; i++) {
+                var char: WChar = this._chars[i];
+                if (!char.visible()) {
+                    continue;
+                }
+
+                result += char.character();
+            }
+            return result;
         }
 
         /*
@@ -256,7 +302,7 @@ module WootTypes {
         // This function is an iterative version of the logic in the code block at the top
         // of page 11 in the paper. We were hitting maximum call stack issues with the recursive
         // version.
-        _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId, stats: InsertTimingStats) {
+        private _integrateInsertionHelper(newChar: WChar, previousId: WCharId, nextId: WCharId, stats: InsertTimingStats) {
             var startMs = performance.now();
             var whileLoopIterations = 0;
             var groupLoopIterations = 0;
@@ -278,7 +324,8 @@ module WootTypes {
              */
             var indexById = {};
             for (var i = 0; i < this._chars.length; i++) {
-                indexById[this._chars[i].id.toString()] = i;
+                var char: WChar = this._chars[i];
+                indexById[char.id().toString()] = i;
             }
 
             while (true) {
@@ -301,7 +348,7 @@ module WootTypes {
                     // We only have one place for newChar to go. This is easy.
                     // splice pushes the element at nextIndex to the right.
                     this._chars.splice(nextIndex, 0, newChar);
-                    this._charById[newChar.id.toString()] = newChar;
+                    this._charById[newChar.id().toString()] = newChar;
                     log("[_integrateInsertionHelper] We're done. Here are the new chars:", this._chars);
                     stats.timeSpentEach.push(performance.now() - startMs);
                     stats.whileLoopIterationsEach.push(whileLoopIterations);
@@ -311,8 +358,8 @@ module WootTypes {
                 }
 
                 // these logs are expensive, shortcut early if logging is disabled
-                loggingEnabled && log("Previous index is ", previousIndex, " which is character ", this._chars[previousIndex].debugString());
-                loggingEnabled && log("Next index is ", nextIndex, " which is character ", this._chars[nextIndex].debugString());
+                loggingEnabled && log("Previous index is ", previousIndex, " which is character ", this._chars[previousIndex].debug());
+                loggingEnabled && log("Next index is ", nextIndex, " which is character ", this._chars[nextIndex].debug());
 
                 // lChars is 'L' from page 11 of the paper and dChar is d_0, d_1, ... from
                 // the same page
@@ -320,15 +367,15 @@ module WootTypes {
                 lChars.push(this._chars[previousIndex]);
                 for (var i = previousIndex + 1; i < nextIndex; i++) {
                     var dChar = this._chars[i];
-                    if (!(dChar.previous.toString() in indexById)) {
+                    if (!(dChar.previous().toString() in indexById)) {
                         throw Error("dChar.previous missing from indexById");
                     }
-                    var dCharIndexOfPrevious = indexById[dChar.previous.toString()];
+                    var dCharIndexOfPrevious = indexById[dChar.previous().toString()];
 
-                    if (!(dChar.next.toString() in indexById)) {
+                    if (!(dChar.next().toString() in indexById)) {
                         throw Error("dChar.next missing from indexById");
                     }
-                    var dCharIndexOfNext = indexById[dChar.next.toString()];
+                    var dCharIndexOfNext = indexById[dChar.next().toString()];
 
                     if (dCharIndexOfPrevious <= previousIndex && dCharIndexOfNext >= nextIndex) {
                         lChars.push(dChar);
@@ -342,38 +389,39 @@ module WootTypes {
 
                 log("Walking along the chars list!");
                 var i = 1;
-                while (i < lChars.length - 1 && lChars[i].id.compare(newChar.id) < 0) {
+                while (i < lChars.length - 1 && lChars[i].id().compare(newChar.id()) < 0) {
                     i += 1;
                     walkLoopIterations += 1;
                 }
 
                 log("We're done and we decided to insert at index ", i);
                 log("This is lChars", lChars);
-                loggingEnabled && log("This is between ", lChars[i - 1].debugString(), " and ", lChars[i].debugString());
-                previousId = lChars[i - 1].id;
-                nextId = lChars[i].id;
+                loggingEnabled && log("This is between ", lChars[i - 1].debug(), " and ", lChars[i].debug());
+                previousId = lChars[i - 1].id();
+                nextId = lChars[i].id();
             }
 
             throw Error("We never get here");
         }
 
-        integrateDeletion(charToDelete: WChar) {
-            var char = this._charById[charToDelete.id.toString()];
-            char.visible = false;
-        }
-
-        // Call this to get a string to show to the user
-        stringForDisplay() {
-            var result = "";
+        /**
+         * Returns the ith visible character in this string. WChar.begin and WChar.end
+         * are both visible. TODO(ryan): this could be more efficient if we keep an
+         * additional list of only-visible chars.
+         */
+        private _ithVisible(position: number): WChar {
+            log("[ithVisible] position ", position);
+            var foundSoFar = -1;
             for (var i = 0; i < this._chars.length; i++) {
                 var char = this._chars[i];
-                if (!char.visible) {
-                    continue;
+                if (char.visible()) {
+                    foundSoFar += 1;
+                    if (foundSoFar === position) {
+                        return this._chars[i];
+                    }
                 }
-
-                result += char.character;
             }
-            return result;
+            throw Error("There is no " + position + "th visible char!");
         }
     }
 }
