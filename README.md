@@ -33,7 +33,7 @@ My [pattern-based-ot project](https://github.com/ryankaplan/pattern-based-ot)
 is a WIP but is already a more robust implementation of a real-time
 document editor than this editor.
 
-If you're looking for something to use in production, I recomment
+If you're looking for something to use in production, I recommend
 taking a look at [share.js](https://github.com/share/sharejs).
 
 # Citations
