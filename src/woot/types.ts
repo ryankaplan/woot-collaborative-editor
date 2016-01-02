@@ -287,18 +287,6 @@ module WootTypes {
             return result;
         }
 
-        /*
-
-         numInsertOpsGenerated: 1
-         timeSpentEach:  974.4269999937387
-         totalGroupLoopIterationsEach: 1969132
-         totalWalkLoopIterationsEach: 1985
-         whileLoopIterationsEach: Array[1]0: 1985
-
-          add 01234567890 * 10 * 5 * 3, delete,
-
-         */
-
         // This function is an iterative version of the logic in the code block at the top
         // of page 11 in the paper. We were hitting maximum call stack issues with the recursive
         // version.
