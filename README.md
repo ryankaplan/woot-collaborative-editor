@@ -34,7 +34,7 @@ is a WIP but is already a more robust implementation of a real-time
 document editor than this editor.
 
 If you're looking for something to use in production, I recomment
-taking a look at (share.js)[https://github.com/share/sharejs].
+taking a look at [share.js](https://github.com/share/sharejs).
 
 # Citations
 
