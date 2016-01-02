@@ -1,9 +1,13 @@
 {
-  "name": "collaborative-editing",
+  "name": "woot-collaborative-editor",
   "version": "0.0.1",
   "description": "client and server for real-time document collaboration",
   "dependencies": {
     "express": "^4.10.2",
     "socket.io": "^1.3.5"
+  },
+  "devDependencies": {
+    "typescript": "^1.7",
+    "jake": "latest"
   }
 }

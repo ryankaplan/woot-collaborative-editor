@@ -10,18 +10,18 @@ app.use(express.static(__dirname + '/../../'));
 
 var nextSiteId = 1;
 
-io.on('connection', function (socket) {
+io.on('connection', function (socket: any) {
     // Give the client a client id
     socket.emit('site_id', nextSiteId);
     nextSiteId += 1;
 
     // msgData is a list of WStringOperation instances
-    socket.on("text_operations", function (msgData) {
+    socket.on("text_operations", function (msgData: any) {
         io.emit("text_operations", msgData);
     })
 });
 
-app.get('/', function (req, res) {
+app.get('/', function (req: any, res: any) {
     res.writeHead(302, {
         'Location': '/html/wootdocument.html'
     });
