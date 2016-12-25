@@ -1,17 +1,8 @@
 # Real-time collaborative document editor
 
-This is a server and client for a real-time collaborative
-document editor. The implementation is as described in [this
-paper [1]](https://hal.inria.fr/inria-00071240/).
+This is a server and client for a real-time collaborative document editor (aka a drastically simplified Google Docs). It's a prototype and not meant to be run in production. Also, it's written in node.js and Typescript, neither of which I had experience with when I built it.
 
-This is a toy implementation - documents aren't persistently
-stored and all clients start out with an empty document. I
-wrote it with node and typescript, neither of which I have
-experience with.
-
-TL;DR Don't use any of this as production/example code :)
-
-Below is a gif of it in action.
+My implementation is based on [this paper [1]](https://hal.inria.fr/inria-00071240/). Here's a GIF of it in action...
 
 ![Gif of two documents](https://github.com/ryankaplan/collaborative-editing/blob/master/static/images/demo.gif?raw=true)
 
@@ -24,17 +15,13 @@ Below is a gif of it in action.
 3. Visit `localhost:3000` in a browser
 4. Start typing!
 
-# Project status
+# Project Status
 
-I also don't plan to keep working on this. WOOT, as an approach,
-gets prohibitively slow without document garbage collection which
-can only happen when all clients disconnect from a given document.
-My [pattern-based-ot project](https://github.com/ryankaplan/pattern-based-ot)
-is a WIP but is already a more robust implementation of a real-time
-document editor than this editor.
+I also don't plan to keep working on this. WOOT, as an approach, gets really slow unless you implement tombstone garbage collection (aka getting rid of text that users have deleted) which can only happen when everyone has disconnected from a document. I consider this an unacceptable user-experience for a collaborative document editor.
 
-If you're looking for something to use in production, I recommend
-taking a look at [share.js](https://github.com/share/sharejs).
+But there are lots of other ways to implement real-time collaborative editors! If you find this kind of stuff interesting and want to chat about it, [let's meet up](https://twitter.com/ryanjkaplan)!
+
+If you're looking for something to use in production, I recommend [share.js](https://github.com/share/sharejs).
 
 # Citations
 
